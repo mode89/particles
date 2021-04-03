@@ -1,7 +1,7 @@
 module Main where
 
 import Control.Lens ((^.))
-import GHCJS.DOM (currentDocumentUnchecked)
+import GHCJS.DOM (currentDocumentUnchecked, inAnimationFrame')
 import GHCJS.DOM.Document
     ( createElement
     , getBodyUnsafe
@@ -36,8 +36,15 @@ main = do
         >>= unsafeCastTo WebGLRenderingContext
 
     GL.clearColor context 0.5 0.5 0.5 1.0
-    GL.clear context GL.COLOR_BUFFER_BIT
 
+    inAnimationFrame' $ tick context
+
+    return ()
+
+tick :: WebGLRenderingContext -> Double -> JSM ()
+tick context timestamp = do
+    GL.clear context GL.COLOR_BUFFER_BIT
+    inAnimationFrame' $ tick context
     return ()
 
 styleSet :: (ToJSVal a, ToJSVal b) => a -> String -> b -> JSM ()
