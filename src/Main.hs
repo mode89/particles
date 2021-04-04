@@ -3,6 +3,7 @@
 module Main where
 
 import Control.Lens ((^.))
+import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString as BS
 import qualified Data.Foldable as Foldable
 import qualified Data.List as L
@@ -26,12 +27,14 @@ import qualified GHCJS.DOM.WebGLRenderingContextBase as GL
 import Language.Javascript.JSaddle (jsf, jsg, new)
 import Linear.Matrix (identity, M44)
 import Linear.Projection (ortho)
+import Reflex (newTriggerEvent, performEvent_)
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
 
 main :: JSM ()
 main = mainWidgetWithCss style $ do
+    (eRender, triggerRender) <- newTriggerEvent
     (canvas, _) <- el' "canvas" $ text ""
-    liftJSM $ do
+    (context, canvasRaw) <- liftJSM $ do
         canvasRaw <- unsafeCastTo HTMLCanvasElement $ _element_raw canvas
         context <- Canvas.getContextUnsafe
             canvasRaw ("webgl" :: Text) ([] :: [()])
@@ -71,9 +74,15 @@ main = mainWidgetWithCss style $ do
         err <- GL.getError context
         putStrLn $ "Error: " ++ show err
 
-        inAnimationFrame' $ tick context canvasRaw
+        let loop = \timestamp -> do
+                        triggerRender timestamp
+                        inAnimationFrame' loop
+                        return ()
+        inAnimationFrame' loop
 
-        return ()
+        return (context, canvasRaw)
+
+    performEvent_ $ liftIO . (tick context canvasRaw) <$> eRender
 
     return ()
 
@@ -92,7 +101,10 @@ fragmentShaderSource = L.intercalate "\n"
     , "   gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
     , "}" ]
 
-tick :: WebGLRenderingContext -> HTMLCanvasElement -> Double -> JSM ()
+tick :: WebGLRenderingContext
+     -> HTMLCanvasElement
+     -> Double
+     -> IO ()
 tick context canvas timestamp = do
     rect <- Element.getBoundingClientRect canvas
     width <- floor <$> DOMRect.getWidth rect
@@ -102,8 +114,6 @@ tick context canvas timestamp = do
     GL.viewport context 0 0 width height
     GL.clear context GL.COLOR_BUFFER_BIT
     GL.drawArrays context GL.TRIANGLES 0 3
-    inAnimationFrame' $ tick context canvas
-    return ()
 
 buildShader :: WebGLRenderingContext -> GLenum -> String -> JSM WebGLShader
 buildShader context shaderType sourceCode = do

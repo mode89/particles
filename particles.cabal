@@ -33,6 +33,7 @@ executable particles
                      , jsaddle
                      , lens
                      , linear
+                     , reflex
                      , reflex-dom
                      , text
   hs-source-dirs:      src
