@@ -48,9 +48,7 @@ main = mainWidgetWithCss style $ do
         toJSVal context ^. jsf ("bufferData" :: Text)
             ( GL.ARRAY_BUFFER :: GLenum
             , new (jsg ("Float32Array" :: Text))
-                [[ -1.0, -1.0
-                 , -1.0,  1.0
-                 ,  1.0,  1.0 :: Float ]]
+                [ particleGeometryData ]
             , GL.STATIC_DRAW :: GLenum )
 
         vertexShader <- buildShader
@@ -114,7 +112,8 @@ tick context canvas timestamp = do
     Canvas.setHeight canvas (fromIntegral height)
     GL.viewport context 0 0 width height
     GL.clear context GL.COLOR_BUFFER_BIT
-    GL.drawArrays context GL.TRIANGLES 0 3
+    GL.drawArrays context GL.TRIANGLE_FAN 0 $
+        fromIntegral $ particleGeometryNumSlices + 2
 
 buildShader :: WebGLRenderingContext -> GLenum -> String -> JSM WebGLShader
 buildShader context shaderType sourceCode = do
@@ -150,6 +149,18 @@ style = BS.intercalate "\n"
     , "    width: 100%;"
     , "    height: 100%;"
     , "}" ]
+
+particleGeometryData :: [Float]
+particleGeometryData = concat $ center : perimeter where
+    concat ps = [n | (x, y) <- ps, n <- [x, y]]
+    center = (0.0, 0.0)
+    perimeter = point <$> [0 .. numSlices]
+    point index = (cos a, sin a) where
+        a = (fromIntegral index) * 2.0 * pi / (fromIntegral numSlices)
+    numSlices = particleGeometryNumSlices
+
+particleGeometryNumSlices :: Int
+particleGeometryNumSlices = 7
 
 listFromMatrix :: M44 a -> [a]
 listFromMatrix = concat . fmap Foldable.toList . Foldable.toList
