@@ -3,8 +3,9 @@
 module Main where
 
 import Control.Lens ((^.))
-import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import qualified Data.Foldable as Foldable
+import qualified Data.List as L
 import Data.Text (Text)
 import GHCJS.DOM (inAnimationFrame')
 import qualified GHCJS.DOM.Element as Element
@@ -48,17 +49,10 @@ main = mainWidgetWithCss style $ do
                  ,  1.0,  1.0 :: Float ]]
             , GL.STATIC_DRAW :: GLenum )
 
-        vertexShader <- buildShader context GL.VERTEX_SHADER
-            "attribute vec2 a_position; \
-            \uniform mat4 u_modelViewProjection; \
-            \void main() { \
-            \    gl_Position = \
-            \        vec4(a_position, 0.0, 1.0) * u_modelViewProjection; \
-            \}"
-        fragmentShader <- buildShader context GL.FRAGMENT_SHADER
-            "void main() { \
-            \   gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); \
-            \}"
+        vertexShader <- buildShader
+            context GL.VERTEX_SHADER vertexShaderSource
+        fragmentShader <- buildShader
+            context GL.FRAGMENT_SHADER fragmentShaderSource
         program <- buildProgram context vertexShader fragmentShader
         GL.useProgram context (Just program)
 
@@ -82,6 +76,21 @@ main = mainWidgetWithCss style $ do
         return ()
 
     return ()
+
+vertexShaderSource :: String
+vertexShaderSource = L.intercalate "\n"
+    [ "attribute vec2 a_position;"
+    , "uniform mat4 u_modelViewProjection;"
+    , "void main() {"
+    , "    gl_Position ="
+    , "        vec4(a_position, 0.0, 1.0) * u_modelViewProjection;"
+    , "}" ]
+
+fragmentShaderSource :: String
+fragmentShaderSource = L.intercalate "\n"
+    [ "void main() {"
+    , "   gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
+    , "}" ]
 
 tick :: WebGLRenderingContext -> HTMLCanvasElement -> Double -> JSM ()
 tick context canvas timestamp = do
@@ -118,18 +127,18 @@ buildProgram context vertexShader fragmentShader = do
     putStrLn $ "Program log: " ++ log
     return program
 
-style :: ByteString
-style =
-    "html, body { \
-    \    display: flex; \
-    \    flex-direction: column; \
-    \    height: 100%; \
-    \    margin: 0; \
-    \} \
-    \canvas { \
-    \    width: 100%; \
-    \    height: 100%; \
-    \}"
+style :: BS.ByteString
+style = BS.intercalate "\n"
+    [ "html, body {"
+    , "    display: flex;"
+    , "    flex-direction: column;"
+    , "    height: 100%;"
+    , "    margin: 0;"
+    , "}"
+    , "canvas {"
+    , "    width: 100%;"
+    , "    height: 100%;"
+    , "}" ]
 
 listFromMatrix :: M44 a -> [a]
 listFromMatrix = concat . fmap Foldable.toList . Foldable.toList
