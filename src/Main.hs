@@ -7,6 +7,7 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString as BS
 import qualified Data.Foldable as Foldable
 import qualified Data.List as L
+import qualified Data.JSString as JSS
 import Data.Text (Text)
 import GHCJS.DOM (inAnimationFrame')
 import qualified GHCJS.DOM.Element as Element
@@ -152,3 +153,9 @@ style = BS.intercalate "\n"
 
 listFromMatrix :: M44 a -> [a]
 listFromMatrix = concat . fmap Foldable.toList . Foldable.toList
+
+consoleLog :: String -> IO ()
+consoleLog = js_consoleLog . JSS.pack
+
+foreign import javascript unsafe "console.log($1)"
+    js_consoleLog :: JSS.JSString -> IO ()
