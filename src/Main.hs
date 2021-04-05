@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -11,6 +12,7 @@ import Data.Int (Int32)
 import qualified Data.List as L
 import qualified Data.JSString as JSS
 import Data.Text (Text)
+import Data.Time (getCurrentTime)
 import GHCJS.DOM (inAnimationFrame')
 import GHCJS.DOM.ANGLEInstancedArrays
     ( drawArraysInstancedANGLE
@@ -21,6 +23,7 @@ import qualified GHCJS.DOM.HTMLCanvasElement as Canvas
 import GHCJS.DOM.Types
     ( ANGLEInstancedArrays(..)
     , GLenum
+    , GLintptr
     , GObject(..)
     , HTMLCanvasElement(..)
     , JSM
@@ -29,6 +32,7 @@ import GHCJS.DOM.Types
     , toJSVal
     , uncheckedCastTo
     , unsafeCastTo
+    , WebGLBuffer
     , WebGLProgram
     , WebGLRenderingContext(..)
     , WebGLShader
@@ -37,20 +41,32 @@ import qualified GHCJS.DOM.WebGLRenderingContextBase as GL
 import Language.Javascript.JSaddle (jsf, jsg, new)
 import Linear.Matrix (identity, M44)
 import Linear.Projection (ortho)
-import Reflex (newTriggerEvent, performEvent_)
+import Linear.V2 (V2(..), _x, _y)
+import qualified Reflex as RX
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
 
 data App = App
-    { gl :: WebGLRenderingContext
-    , angleInstancedArrays :: ANGLEInstancedArrays }
+    { canvas :: HTMLCanvasElement
+    , gl :: WebGLRenderingContext
+    , angleInstancedArrays :: ANGLEInstancedArrays
+    , translationBuffer :: WebGLBuffer }
+
+data State = State
+    { particles :: Particles }
+
+type Particles = [Particle]
+
+data Particle = Particle
+    { position :: V2 Float
+    , velocity :: V2 Float }
 
 main :: JSM ()
 main = mainWidgetWithCss style $ do
-    (eRender, triggerRender) <- newTriggerEvent
-    (canvas, _) <- el' "canvas" $ text ""
+    (eAnimationFrame, triggerAnimationFrame) <- RX.newTriggerEvent
+    (canvasEl, _) <- el' "canvas" $ text ""
     canvasRaw <- liftJSM . unsafeCastTo HTMLCanvasElement $
-        _element_raw canvas
-    (gl, angleInstancedArrays) <- liftJSM $ do
+        _element_raw canvasEl
+    (gl, angleInstancedArrays, translationBuffer) <- liftJSM $ do
         gl <- Canvas.getContextUnsafe
             canvasRaw ("webgl" :: Text) ([] :: [()])
                 >>= unsafeCastTo WebGLRenderingContext
@@ -67,8 +83,8 @@ main = mainWidgetWithCss style $ do
 
         translationBuffer <- GL.createBuffer gl
         GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
-        bufferDataFloat gl
-            GL.ARRAY_BUFFER [0.0, 0.0, 1.0, 1.0] GL.STATIC_DRAW
+        bufferDataSizeOnly gl GL.ARRAY_BUFFER
+            (fromIntegral $ particlesNum * 8) GL.DYNAMIC_DRAW
 
         vertexShader <- buildShader gl GL.VERTEX_SHADER vertexShaderSource
         fragmentShader <- buildShader
@@ -102,17 +118,22 @@ main = mainWidgetWithCss style $ do
         putStrLn $ "Error: " ++ show err
 
         let loop = \timestamp -> do
-                        triggerRender timestamp
+                        triggerAnimationFrame timestamp
                         inAnimationFrame' loop
                         return ()
         inAnimationFrame' loop
 
-        return (gl, angleInstancedArrays)
+        return (gl, angleInstancedArrays, translationBuffer)
 
-    let app = App { gl = gl
-                  , angleInstancedArrays = angleInstancedArrays }
+    let app = App { canvas = canvasRaw, .. }
 
-    performEvent_ $ liftIO . (tick app canvasRaw) <$> eRender
+    now <- liftIO getCurrentTime
+    eTick <- RX.tickLossy 0.04 now
+
+    bState <- RX.accumB updateState initialState eTick
+    let eRender = RX.attach bState eAnimationFrame
+
+    RX.performEvent_ $ liftIO . (render app) <$> eRender
 
     return ()
 
@@ -133,11 +154,10 @@ fragmentShaderSource = L.intercalate "\n"
     , "   gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
     , "}" ]
 
-tick :: App
-     -> HTMLCanvasElement
-     -> Double
+render :: App
+     -> (State, Double)
      -> IO ()
-tick App{..} canvas timestamp = do
+render App{..} (State{..}, timestamp) = do
     rect <- Element.getBoundingClientRect canvas
     width <- floor <$> DOMRect.getWidth rect
     height <- floor <$> DOMRect.getHeight rect
@@ -145,8 +165,17 @@ tick App{..} canvas timestamp = do
     Canvas.setHeight canvas (fromIntegral height)
     GL.viewport gl 0 0 width height
     GL.clear gl GL.COLOR_BUFFER_BIT
+
+    GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
+    bufferSubDataFloat gl GL.ARRAY_BUFFER 0 translations
+    GL.bindBuffer gl GL.ARRAY_BUFFER Nothing
+
     drawArraysInstancedANGLE angleInstancedArrays
         GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) 2
+    where
+        translations = [n | p <- particles, n <- [ x p, y p ]]
+        x p = position p ^. _x
+        y p = position p ^. _y
 
 buildShader :: WebGLRenderingContext -> GLenum -> String -> JSM WebGLShader
 buildShader gl shaderType sourceCode = do
@@ -209,10 +238,10 @@ bufferDataFloat :: WebGLRenderingContext
                 -> [Float]
                 -> GLenum
                 -> JSM ()
-bufferDataFloat gl binding values usage = do
+bufferDataFloat gl binding data' usage = do
     toJSVal gl ^. jsf ("bufferData" :: Text)
         ( binding
-        , new (jsg ("Float32Array" :: Text)) [ values ]
+        , new (jsg ("Float32Array" :: Text)) [ data' ]
         , usage )
     return ()
 
@@ -224,3 +253,33 @@ bufferDataSizeOnly :: WebGLRenderingContext
 bufferDataSizeOnly gl binding size usage = do
     toJSVal gl ^. jsf ("bufferData" :: Text) ( binding, size, usage )
     return ()
+
+bufferSubDataFloat :: WebGLRenderingContext
+                   -> GLenum
+                   -> Int32
+                   -> [Float]
+                   -> JSM ()
+bufferSubDataFloat gl binding offset data' = do
+    toJSVal gl ^. jsf ("bufferSubData" :: Text)
+        ( binding
+        , offset
+        , new (jsg ("Float32Array" :: Text)) [ data' ] )
+    return ()
+
+particlesNum :: Int
+particlesNum = 2
+
+initialState :: State
+initialState = State {
+      particles =
+        [ Particle { position = V2 0.0 0.0 }
+        , Particle { position = V2 1.0 1.0 } ]
+    }
+
+updateState :: State -> RX.TickInfo -> State
+updateState State{..} RX.TickInfo{..} = State {
+        particles = shift <$> particles
+    } where
+        shift particle@Particle{..} = particle {
+            position = V2 (position ^. _x + 0.01) (position ^. _y)
+        }
