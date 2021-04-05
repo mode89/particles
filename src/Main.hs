@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -5,7 +6,7 @@
 module Main where
 
 import Control.Lens ((^.))
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (liftIO, MonadIO)
 import qualified Data.ByteString as BS
 import qualified Data.Foldable as Foldable
 import Data.Int (Int32)
@@ -59,6 +60,10 @@ type Particles = [Particle]
 data Particle = Particle
     { position :: V2 Float
     , velocity :: V2 Float }
+
+data CanvasSize = CanvasSize
+    { width :: Int
+    , height :: Int } deriving (Eq, Show)
 
 main :: JSM ()
 main = mainWidgetWithCss style $ do
@@ -134,6 +139,9 @@ main = mainWidgetWithCss style $ do
     let eRender = RX.attach bState eAnimationFrame
 
     RX.performEvent_ $ liftIO . (render app) <$> eRender
+
+    (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize
+        canvasRaw eAnimationFrame
 
     return ()
 
@@ -283,3 +291,31 @@ updateState State{..} RX.TickInfo{..} = State {
         shift particle@Particle{..} = particle {
             position = V2 (position ^. _x + 0.01) (position ^. _y)
         }
+
+trackCanvasSize :: ( Monad m
+                   , RX.MonadHold t m
+                   , MonadIO (RX.Performable m)
+                   , RX.MonadSample t (RX.Performable m)
+                   , RX.PerformEvent t m
+                   , RX.TriggerEvent t m )
+                => HTMLCanvasElement
+                -> RX.Event t a
+                -> m (RX.Behavior t CanvasSize, RX.Event t CanvasSize)
+trackCanvasSize canvas event = do
+    (eSizeChanged, triggerSizeChanged) <- RX.newTriggerEvent
+    bSize <- RX.hold (CanvasSize 0 0) eSizeChanged
+    RX.performEvent_ $ (\_ -> do
+            CanvasSize{..} <- RX.sample bSize
+            liftIO $ do
+                rect <- Element.getBoundingClientRect canvas
+                width' <- floor <$> DOMRect.getWidth rect
+                height' <- floor <$> DOMRect.getHeight rect
+                if width' /= width || height' /= height then do
+                    Canvas.setWidth canvas (fromIntegral width')
+                    Canvas.setHeight canvas (fromIntegral height')
+                    triggerSizeChanged $ CanvasSize width' height'
+                    return ()
+                else
+                    return ()
+        ) <$> event
+    return (bSize, eSizeChanged)
