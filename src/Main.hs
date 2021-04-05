@@ -40,9 +40,10 @@ import GHCJS.DOM.Types
     , WebGLUniformLocation )
 import qualified GHCJS.DOM.WebGLRenderingContextBase as GL
 import Language.Javascript.JSaddle (jsf, jsg, new)
-import Linear.Matrix (identity, M44)
+import Linear.Matrix ((!*!), identity, mkTransformationMat, M44, transpose)
 import Linear.Projection (ortho)
 import Linear.V2 (V2(..), _x, _y)
+import Linear.V3 (V3(..))
 import qualified Reflex as RX
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
 
@@ -50,10 +51,12 @@ data App = App
     { canvas :: HTMLCanvasElement
     , gl :: WebGLRenderingContext
     , angleInstancedArrays :: ANGLEInstancedArrays
-    , translationBuffer :: WebGLBuffer }
+    , translationBuffer :: WebGLBuffer
+    , modelViewProjectionUniform :: WebGLUniformLocation }
 
 data State = State
-    { particles :: Particles }
+    { particles :: Particles
+    , projectionMatrix :: M44 Double }
 
 type Particles = [Particle]
 
@@ -71,7 +74,7 @@ main = mainWidgetWithCss style $ do
     (canvasEl, _) <- el' "canvas" $ text ""
     canvasRaw <- liftJSM . unsafeCastTo HTMLCanvasElement $
         _element_raw canvasEl
-    (gl, angleInstancedArrays, translationBuffer) <- liftJSM $ do
+    app <- liftJSM $ do
         gl <- Canvas.getContextUnsafe
             canvasRaw ("webgl" :: Text) ([] :: [()])
                 >>= unsafeCastTo WebGLRenderingContext
@@ -97,6 +100,9 @@ main = mainWidgetWithCss style $ do
         program <- buildProgram gl vertexShader fragmentShader
         GL.useProgram gl (Just program)
 
+        modelViewProjectionUniform <- GL.getUniformLocation
+            gl (Just program) ("u_modelViewProjection" :: Text)
+
         GL.bindBuffer gl GL.ARRAY_BUFFER $ Just vertexBuffer
         positionAttr <- fromIntegral <$> GL.getAttribLocation
             gl (Just program) ("a_position" :: Text)
@@ -113,12 +119,6 @@ main = mainWidgetWithCss style $ do
         vertexAttribDivisorANGLE angleInstancedArrays
             (fromIntegral translationAttr) 1
 
-        let matrix = ortho (-2.0) 2.0 (-2.0) 2.0 (-1.0) 1.0 :: M44 Double
-        modelViewProjectionUniform <- GL.getUniformLocation
-            gl (Just program) ("u_modelViewProjection" :: Text)
-        GL.uniformMatrix4fv gl
-            (Just modelViewProjectionUniform) False $ listFromMatrix matrix
-
         err <- GL.getError gl
         putStrLn $ "Error: " ++ show err
 
@@ -128,20 +128,23 @@ main = mainWidgetWithCss style $ do
                         return ()
         inAnimationFrame' loop
 
-        return (gl, angleInstancedArrays, translationBuffer)
+        return App { canvas = canvasRaw, .. }
 
-    let app = App { canvas = canvasRaw, .. }
+    (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize
+        canvasRaw eAnimationFrame
 
     now <- liftIO getCurrentTime
     eTick <- RX.tickLossy 0.04 now
 
-    bState <- RX.accumB updateState initialState eTick
-    let eRender = RX.attach bState eAnimationFrame
+    let bProjectionMatrix = projectionMatrixFromCanvasSize <$> bCanvasSize
 
+    bParticles <- RX.accumB updateParticles initialParticles eTick
+    let bState = State <$> bParticles <*> bProjectionMatrix
+    let eRender = RX.tag bState eAnimationFrame
+
+    RX.performEvent_ $
+        liftIO . updateViewportSize (gl app) <$> eCanvasSizeChanged
     RX.performEvent_ $ liftIO . (render app) <$> eRender
-
-    (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize
-        canvasRaw eAnimationFrame
 
     return ()
 
@@ -163,15 +166,11 @@ fragmentShaderSource = L.intercalate "\n"
     , "}" ]
 
 render :: App
-     -> (State, Double)
+     -> State
      -> IO ()
-render App{..} (State{..}, timestamp) = do
-    rect <- Element.getBoundingClientRect canvas
-    width <- floor <$> DOMRect.getWidth rect
-    height <- floor <$> DOMRect.getHeight rect
-    Canvas.setWidth canvas (fromIntegral width)
-    Canvas.setHeight canvas (fromIntegral height)
-    GL.viewport gl 0 0 width height
+render App{..} State{..} = do
+    GL.uniformMatrix4fv gl (Just modelViewProjectionUniform) False $
+        listFromMatrix projectionMatrix
     GL.clear gl GL.COLOR_BUFFER_BIT
 
     GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
@@ -277,20 +276,16 @@ bufferSubDataFloat gl binding offset data' = do
 particlesNum :: Int
 particlesNum = 2
 
-initialState :: State
-initialState = State {
-      particles =
-        [ Particle { position = V2 0.0 0.0 }
-        , Particle { position = V2 1.0 1.0 } ]
-    }
+initialParticles :: Particles
+initialParticles =
+    [ Particle { position = V2 0.0 0.0 }
+    , Particle { position = V2 1.0 1.0 } ]
 
-updateState :: State -> RX.TickInfo -> State
-updateState State{..} RX.TickInfo{..} = State {
-        particles = shift <$> particles
-    } where
-        shift particle@Particle{..} = particle {
-            position = V2 (position ^. _x + 0.01) (position ^. _y)
-        }
+updateParticles :: Particles -> RX.TickInfo -> Particles
+updateParticles particles RX.TickInfo{..} = shift <$> particles where
+    shift particle@Particle{..} = particle {
+        position = V2 (position ^. _x + 1.0) (position ^. _y)
+    }
 
 trackCanvasSize :: ( Monad m
                    , RX.MonadHold t m
@@ -319,3 +314,18 @@ trackCanvasSize canvas event = do
                     return ()
         ) <$> event
     return (bSize, eSizeChanged)
+
+updateViewportSize :: WebGLRenderingContext -> CanvasSize -> JSM ()
+updateViewportSize gl CanvasSize{..} =
+    GL.viewport gl 0 0 (fromIntegral width) (fromIntegral height)
+
+projectionMatrixFromCanvasSize :: CanvasSize -> M44 Double
+projectionMatrixFromCanvasSize CanvasSize{..} =
+    transpose $ projection !*! modelView
+    where
+        projection = ortho
+            (-halfWidth) halfWidth (-halfHeight) halfHeight (-1.0) 1.0
+        modelView = mkTransformationMat
+            identity $ V3 (-halfWidth) (-halfHeight) 0.0
+        halfWidth = 0.5 * (fromIntegral width)
+        halfHeight = 0.5 * (fromIntegral height)
