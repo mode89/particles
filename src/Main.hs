@@ -44,6 +44,8 @@ import Linear.Matrix ((!*!), identity, mkTransformationMat, M44, transpose)
 import Linear.Projection (ortho)
 import Linear.V2 (V2(..), _x, _y)
 import Linear.V3 (V3(..))
+import Linear.V4 (V4(..))
+import Linear.Vector (scaled)
 import qualified Reflex as RX
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
 
@@ -52,7 +54,7 @@ data App = App
     , gl :: WebGLRenderingContext
     , angleInstancedArrays :: ANGLEInstancedArrays
     , translationBuffer :: WebGLBuffer
-    , modelViewProjectionUniform :: WebGLUniformLocation }
+    , projectionUniform :: WebGLUniformLocation }
 
 data State = State
     { particles :: Particles
@@ -100,8 +102,13 @@ main = mainWidgetWithCss style $ do
         program <- buildProgram gl vertexShader fragmentShader
         GL.useProgram gl (Just program)
 
-        modelViewProjectionUniform <- GL.getUniformLocation
-            gl (Just program) ("u_modelViewProjection" :: Text)
+        modelUniform <- GL.getUniformLocation
+            gl (Just program) ("u_model" :: Text)
+        GL.uniformMatrix4fv gl (Just modelUniform) False $
+            listFromMatrix $ modelMatrix particleRadius
+
+        projectionUniform <- GL.getUniformLocation
+            gl (Just program) ("u_projection" :: Text)
 
         GL.bindBuffer gl GL.ARRAY_BUFFER $ Just vertexBuffer
         positionAttr <- fromIntegral <$> GL.getAttribLocation
@@ -152,11 +159,12 @@ vertexShaderSource :: String
 vertexShaderSource = L.intercalate "\n"
     [ "attribute vec2 a_position;"
     , "attribute vec2 a_translation;"
-    , "uniform mat4 u_modelViewProjection;"
+    , "uniform mat4 u_model;"
+    , "uniform mat4 u_projection;"
     , "void main() {"
     , "    gl_Position ="
-    , "        u_modelViewProjection *"
-    , "        vec4(a_position + a_translation, 0.0, 1.0);"
+    , "        u_projection * (u_model * vec4(a_position, 0.0, 1.0) + "
+    , "        vec4(a_translation, 0.0, 1.0));"
     , "}" ]
 
 fragmentShaderSource :: String
@@ -169,7 +177,7 @@ render :: App
      -> State
      -> IO ()
 render App{..} State{..} = do
-    GL.uniformMatrix4fv gl (Just modelViewProjectionUniform) False $
+    GL.uniformMatrix4fv gl (Just projectionUniform) False $
         listFromMatrix projectionMatrix
     GL.clear gl GL.COLOR_BUFFER_BIT
 
@@ -329,3 +337,9 @@ projectionMatrixFromCanvasSize CanvasSize{..} =
             identity $ V3 (-halfWidth) (-halfHeight) 0.0
         halfWidth = 0.5 * (fromIntegral width)
         halfHeight = 0.5 * (fromIntegral height)
+
+modelMatrix :: Double -> M44 Double
+modelMatrix radius = scaled $ V4 radius radius 1.0 1.0
+
+particleRadius :: Double
+particleRadius = 10.0
