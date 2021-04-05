@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Main where
 
@@ -6,24 +7,32 @@ import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString as BS
 import qualified Data.Foldable as Foldable
+import Data.Int (Int32)
 import qualified Data.List as L
 import qualified Data.JSString as JSS
 import Data.Text (Text)
 import GHCJS.DOM (inAnimationFrame')
+import GHCJS.DOM.ANGLEInstancedArrays
+    ( drawArraysInstancedANGLE
+    , vertexAttribDivisorANGLE )
 import qualified GHCJS.DOM.Element as Element
 import qualified GHCJS.DOM.DOMRect as DOMRect
 import qualified GHCJS.DOM.HTMLCanvasElement as Canvas
 import GHCJS.DOM.Types
-    ( GLenum
+    ( ANGLEInstancedArrays(..)
+    , GLenum
+    , GObject(..)
     , HTMLCanvasElement(..)
     , JSM
     , liftJSM
     , RenderingContext(..)
     , toJSVal
+    , uncheckedCastTo
     , unsafeCastTo
     , WebGLProgram
     , WebGLRenderingContext(..)
-    , WebGLShader )
+    , WebGLShader
+    , WebGLUniformLocation )
 import qualified GHCJS.DOM.WebGLRenderingContextBase as GL
 import Language.Javascript.JSaddle (jsf, jsg, new)
 import Linear.Matrix (identity, M44)
@@ -31,46 +40,65 @@ import Linear.Projection (ortho)
 import Reflex (newTriggerEvent, performEvent_)
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
 
+data App = App
+    { gl :: WebGLRenderingContext
+    , angleInstancedArrays :: ANGLEInstancedArrays }
+
 main :: JSM ()
 main = mainWidgetWithCss style $ do
     (eRender, triggerRender) <- newTriggerEvent
     (canvas, _) <- el' "canvas" $ text ""
-    (context, canvasRaw) <- liftJSM $ do
-        canvasRaw <- unsafeCastTo HTMLCanvasElement $ _element_raw canvas
-        context <- Canvas.getContextUnsafe
+    canvasRaw <- liftJSM . unsafeCastTo HTMLCanvasElement $
+        _element_raw canvas
+    (gl, angleInstancedArrays) <- liftJSM $ do
+        gl <- Canvas.getContextUnsafe
             canvasRaw ("webgl" :: Text) ([] :: [()])
                 >>= unsafeCastTo WebGLRenderingContext
 
-        GL.clearColor context 0.5 0.5 0.5 1.0
+        GL.clearColor gl 0.5 0.5 0.5 1.0
 
-        vertexBuffer <- GL.createBuffer context
-        GL.bindBuffer context GL.ARRAY_BUFFER (Just vertexBuffer)
-        toJSVal context ^. jsf ("bufferData" :: Text)
-            ( GL.ARRAY_BUFFER :: GLenum
-            , new (jsg ("Float32Array" :: Text))
-                [ particleGeometryData ]
-            , GL.STATIC_DRAW :: GLenum )
+        angleInstancedArrays <- uncheckedCastTo ANGLEInstancedArrays <$>
+            GL.getExtensionUnsafe gl ("ANGLE_instanced_arrays" :: Text)
 
-        vertexShader <- buildShader
-            context GL.VERTEX_SHADER vertexShaderSource
+        vertexBuffer <- GL.createBuffer gl
+        GL.bindBuffer gl GL.ARRAY_BUFFER (Just vertexBuffer)
+        bufferDataFloat gl
+            GL.ARRAY_BUFFER particleGeometryData GL.STATIC_DRAW
+
+        translationBuffer <- GL.createBuffer gl
+        GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
+        bufferDataFloat gl
+            GL.ARRAY_BUFFER [0.0, 0.0, 1.0, 1.0] GL.STATIC_DRAW
+
+        vertexShader <- buildShader gl GL.VERTEX_SHADER vertexShaderSource
         fragmentShader <- buildShader
-            context GL.FRAGMENT_SHADER fragmentShaderSource
-        program <- buildProgram context vertexShader fragmentShader
-        GL.useProgram context (Just program)
+            gl GL.FRAGMENT_SHADER fragmentShaderSource
+        program <- buildProgram gl vertexShader fragmentShader
+        GL.useProgram gl (Just program)
 
-        positionAttributeLocation <- fromIntegral <$> GL.getAttribLocation
-            context (Just program) ("a_position" :: Text)
-        GL.enableVertexAttribArray context positionAttributeLocation
-        GL.vertexAttribPointer context
-            positionAttributeLocation 2 GL.FLOAT False 0 0
+        GL.bindBuffer gl GL.ARRAY_BUFFER $ Just vertexBuffer
+        positionAttr <- fromIntegral <$> GL.getAttribLocation
+            gl (Just program) ("a_position" :: Text)
+        GL.enableVertexAttribArray gl positionAttr
+        GL.vertexAttribPointer gl positionAttr 2 GL.FLOAT False 0 0
+        vertexAttribDivisorANGLE angleInstancedArrays
+            (fromIntegral positionAttr) 0
+
+        GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
+        translationAttr <- fromIntegral <$> GL.getAttribLocation
+            gl (Just program) ("a_translation" :: Text)
+        GL.enableVertexAttribArray gl translationAttr
+        GL.vertexAttribPointer gl translationAttr 2 GL.FLOAT False 0 0
+        vertexAttribDivisorANGLE angleInstancedArrays
+            (fromIntegral translationAttr) 1
 
         let matrix = ortho (-2.0) 2.0 (-2.0) 2.0 (-1.0) 1.0 :: M44 Double
         modelViewProjectionUniform <- GL.getUniformLocation
-            context (Just program) ("u_modelViewProjection" :: Text)
-        GL.uniformMatrix4fv context
+            gl (Just program) ("u_modelViewProjection" :: Text)
+        GL.uniformMatrix4fv gl
             (Just modelViewProjectionUniform) False $ listFromMatrix matrix
 
-        err <- GL.getError context
+        err <- GL.getError gl
         putStrLn $ "Error: " ++ show err
 
         let loop = \timestamp -> do
@@ -79,19 +107,24 @@ main = mainWidgetWithCss style $ do
                         return ()
         inAnimationFrame' loop
 
-        return (context, canvasRaw)
+        return (gl, angleInstancedArrays)
 
-    performEvent_ $ liftIO . (tick context canvasRaw) <$> eRender
+    let app = App { gl = gl
+                  , angleInstancedArrays = angleInstancedArrays }
+
+    performEvent_ $ liftIO . (tick app canvasRaw) <$> eRender
 
     return ()
 
 vertexShaderSource :: String
 vertexShaderSource = L.intercalate "\n"
     [ "attribute vec2 a_position;"
+    , "attribute vec2 a_translation;"
     , "uniform mat4 u_modelViewProjection;"
     , "void main() {"
     , "    gl_Position ="
-    , "        vec4(a_position, 0.0, 1.0) * u_modelViewProjection;"
+    , "        u_modelViewProjection *"
+    , "        vec4(a_position + a_translation, 0.0, 1.0);"
     , "}" ]
 
 fragmentShaderSource :: String
@@ -100,27 +133,27 @@ fragmentShaderSource = L.intercalate "\n"
     , "   gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
     , "}" ]
 
-tick :: WebGLRenderingContext
+tick :: App
      -> HTMLCanvasElement
      -> Double
      -> IO ()
-tick context canvas timestamp = do
+tick App{..} canvas timestamp = do
     rect <- Element.getBoundingClientRect canvas
     width <- floor <$> DOMRect.getWidth rect
     height <- floor <$> DOMRect.getHeight rect
     Canvas.setWidth canvas (fromIntegral width)
     Canvas.setHeight canvas (fromIntegral height)
-    GL.viewport context 0 0 width height
-    GL.clear context GL.COLOR_BUFFER_BIT
-    GL.drawArrays context GL.TRIANGLE_FAN 0 $
-        fromIntegral $ particleGeometryNumSlices + 2
+    GL.viewport gl 0 0 width height
+    GL.clear gl GL.COLOR_BUFFER_BIT
+    drawArraysInstancedANGLE angleInstancedArrays
+        GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) 2
 
 buildShader :: WebGLRenderingContext -> GLenum -> String -> JSM WebGLShader
-buildShader context shaderType sourceCode = do
-    shader <- GL.createShader context shaderType
-    GL.shaderSource context (Just shader) sourceCode
-    GL.compileShader context $ Just shader
-    log <- GL.getShaderInfoLogUnsafe context $ Just shader
+buildShader gl shaderType sourceCode = do
+    shader <- GL.createShader gl shaderType
+    GL.shaderSource gl (Just shader) sourceCode
+    GL.compileShader gl $ Just shader
+    log <- GL.getShaderInfoLogUnsafe gl $ Just shader
     putStrLn $ "Shader compilation log: " ++ log
     return shader
 
@@ -128,12 +161,12 @@ buildProgram :: WebGLRenderingContext
              -> WebGLShader
              -> WebGLShader
              -> JSM WebGLProgram
-buildProgram context vertexShader fragmentShader = do
-    program <- GL.createProgram context
-    GL.attachShader context (Just program) (Just vertexShader)
-    GL.attachShader context (Just program) (Just fragmentShader)
-    GL.linkProgram context (Just program)
-    log <- GL.getProgramInfoLogUnsafe context (Just program)
+buildProgram gl vertexShader fragmentShader = do
+    program <- GL.createProgram gl
+    GL.attachShader gl (Just program) (Just vertexShader)
+    GL.attachShader gl (Just program) (Just fragmentShader)
+    GL.linkProgram gl (Just program)
+    log <- GL.getProgramInfoLogUnsafe gl (Just program)
     putStrLn $ "Program log: " ++ log
     return program
 
@@ -170,3 +203,24 @@ consoleLog = js_consoleLog . JSS.pack
 
 foreign import javascript unsafe "console.log($1)"
     js_consoleLog :: JSS.JSString -> IO ()
+
+bufferDataFloat :: WebGLRenderingContext
+                -> GLenum
+                -> [Float]
+                -> GLenum
+                -> JSM ()
+bufferDataFloat gl binding values usage = do
+    toJSVal gl ^. jsf ("bufferData" :: Text)
+        ( binding
+        , new (jsg ("Float32Array" :: Text)) [ values ]
+        , usage )
+    return ()
+
+bufferDataSizeOnly :: WebGLRenderingContext
+                   -> GLenum
+                   -> Int32
+                   -> GLenum
+                   -> JSM ()
+bufferDataSizeOnly gl binding size usage = do
+    toJSVal gl ^. jsf ("bufferData" :: Text) ( binding, size, usage )
+    return ()
