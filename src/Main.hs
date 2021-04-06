@@ -215,15 +215,13 @@ buildProgram gl vertexShader fragmentShader = do
 
 style :: BS.ByteString
 style = BS.intercalate "\n"
-    [ "html, body {"
-    , "    display: flex;"
-    , "    flex-direction: column;"
-    , "    height: 100%;"
+    [ "body {"
     , "    margin: 0;"
     , "}"
     , "canvas {"
-    , "    width: 100%;"
-    , "    height: 100%;"
+    , "    display: block;"
+    , "    width: 100vw;"
+    , "    height: 100vh;"
     , "}" ]
 
 particleGeometryData :: [Float]
