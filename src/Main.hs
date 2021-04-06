@@ -14,7 +14,6 @@ import Data.Int (Int32)
 import qualified Data.List as L
 import qualified Data.JSString as JSS
 import Data.Text (Text)
-import Data.Time (getCurrentTime)
 import GHCJS.DOM (inAnimationFrame')
 import GHCJS.DOM.ANGLEInstancedArrays
     ( drawArraysInstancedANGLE
@@ -138,8 +137,7 @@ main = mainWidgetWithCss style $ do
     (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize
         canvasRaw eAnimationFrame
 
-    now <- liftIO getCurrentTime
-    eTick <- RX.tickLossy 0.04 now
+    eTick <- RX.tickLossyFromPostBuildTime $ realToFrac tickInterval
 
     let bProjectionMatrix = projectionMatrixFromCanvasSize <$> bCanvasSize
 
@@ -287,12 +285,14 @@ randomParticle :: StdGen -> (Particle, StdGen)
 randomParticle = runState $ do
     x <- state $ randomR (100.0, 200.0)
     y <- state $ randomR (100.0, 200.0)
-    return $ Particle { position = V2 x y }
+    vx <- state $ randomR (-1000.0, 1000.0)
+    vy <- state $ randomR (-1000.0, 1000.0)
+    return $ Particle { position = V2 x y, velocity = V2 vx vy }
 
 updateParticles :: Particles -> RX.TickInfo -> Particles
-updateParticles particles RX.TickInfo{..} = shift <$> particles where
-    shift particle@Particle{..} = particle {
-        position = V2 (position ^. _x + 1.0) (position ^. _y)
+updateParticles particles RX.TickInfo{..} = update <$> particles where
+    update particle@Particle{..} = particle {
+        position = position + velocity * (realToFrac tickInterval)
     }
 
 trackCanvasSize :: ( Monad m
@@ -342,3 +342,6 @@ modelMatrix radius = scaled $ V4 radius radius 1.0 1.0
 
 particleRadius :: Double
 particleRadius = 10.0
+
+tickInterval :: Double
+tickInterval = 0.04
