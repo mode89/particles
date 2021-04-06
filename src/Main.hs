@@ -324,11 +324,11 @@ projectionMatrixFromCanvasSize CanvasSize{..} =
     transpose $ projection !*! modelView
     where
         projection = ortho
-            (-halfWidth) halfWidth (-halfHeight) halfHeight (-1.0) 1.0
+            (-width') width' (-height') height' (-1.0) 1.0
         modelView = mkTransformationMat
-            identity $ V3 (-halfWidth) (-halfHeight) 0.0
-        halfWidth = 0.5 * (fromIntegral width)
-        halfHeight = 0.5 * (fromIntegral height)
+            identity $ V3 (-width') (-height') 0.0
+        width' = (fromIntegral width) / 4.0
+        height' = (fromIntegral height) / 4.0
 
 modelMatrix :: Double -> M44 Double
 modelMatrix radius = scaled $ V4 radius radius 1.0 1.0
