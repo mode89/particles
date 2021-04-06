@@ -7,6 +7,7 @@ module Main where
 
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO, MonadIO)
+import Control.Monad.State (runState, state)
 import qualified Data.ByteString as BS
 import qualified Data.Foldable as Foldable
 import Data.Int (Int32)
@@ -47,6 +48,7 @@ import Linear.V4 (V4(..))
 import Linear.Vector (scaled)
 import qualified Reflex as RX
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
+import System.Random (mkStdGen, randomR, StdGen)
 
 data App = App
     { canvas :: HTMLCanvasElement
@@ -181,7 +183,7 @@ render App{..} (particles, projectionMatrix) = do
     GL.bindBuffer gl GL.ARRAY_BUFFER Nothing
 
     drawArraysInstancedANGLE angleInstancedArrays
-        GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) 2
+        GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) particlesNum
     where
         translations = [n | p <- particles, n <- [ x p, y p ]]
         x p = position p ^. _x
@@ -275,12 +277,17 @@ bufferSubDataFloat gl binding offset data' = do
     return ()
 
 particlesNum :: Int
-particlesNum = 2
+particlesNum = 10
 
 initialParticles :: Particles
 initialParticles =
-    [ Particle { position = V2 0.0 0.0 }
-    , Particle { position = V2 1.0 1.0 } ]
+    take particlesNum . L.unfoldr (Just . randomParticle) $ mkStdGen 0
+
+randomParticle :: StdGen -> (Particle, StdGen)
+randomParticle = runState $ do
+    x <- state $ randomR (100.0, 200.0)
+    y <- state $ randomR (100.0, 200.0)
+    return $ Particle { position = V2 x y }
 
 updateParticles :: Particles -> RX.TickInfo -> Particles
 updateParticles particles RX.TickInfo{..} = shift <$> particles where
