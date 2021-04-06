@@ -19,7 +19,6 @@ import GHCJS.DOM.ANGLEInstancedArrays
     ( drawArraysInstancedANGLE
     , vertexAttribDivisorANGLE )
 import qualified GHCJS.DOM.Element as Element
-import qualified GHCJS.DOM.DOMRect as DOMRect
 import qualified GHCJS.DOM.HTMLCanvasElement as Canvas
 import GHCJS.DOM.Types
     ( ANGLEInstancedArrays(..)
@@ -310,9 +309,8 @@ trackCanvasSize canvas event = do
     RX.performEvent_ $ (\_ -> do
             CanvasSize{..} <- RX.sample bSize
             liftIO $ do
-                rect <- Element.getBoundingClientRect canvas
-                width' <- floor <$> DOMRect.getWidth rect
-                height' <- floor <$> DOMRect.getHeight rect
+                width' <- floor <$> Element.getClientWidth canvas
+                height' <- floor <$> Element.getClientHeight canvas
                 if width' /= width || height' /= height then do
                     Canvas.setWidth canvas (fromIntegral width')
                     Canvas.setHeight canvas (fromIntegral height')
