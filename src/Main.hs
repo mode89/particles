@@ -55,11 +55,8 @@ data App = App
     , translationBuffer :: WebGLBuffer
     , projectionUniform :: WebGLUniformLocation }
 
-data State = State
-    { particles :: Particles
-    , projectionMatrix :: M44 Double }
-
 type Particles = [Particle]
+type ProjectionMatrix = M44 Double
 
 data Particle = Particle
     { position :: V2 Float
@@ -145,8 +142,7 @@ main = mainWidgetWithCss style $ do
     let bProjectionMatrix = projectionMatrixFromCanvasSize <$> bCanvasSize
 
     bParticles <- RX.accumB updateParticles initialParticles eTick
-    let bState = State <$> bParticles <*> bProjectionMatrix
-    let eRender = RX.tag bState eAnimationFrame
+    let eRender = RX.tag ((,) <$> bParticles <*> bProjectionMatrix) eAnimationFrame
 
     RX.performEvent_ $
         liftIO . updateViewportSize (gl app) <$> eCanvasSizeChanged
@@ -173,9 +169,9 @@ fragmentShaderSource = L.intercalate "\n"
     , "}" ]
 
 render :: App
-     -> State
+     -> (Particles, ProjectionMatrix)
      -> IO ()
-render App{..} State{..} = do
+render App{..} (particles, projectionMatrix) = do
     GL.uniformMatrix4fv gl (Just projectionUniform) False $
         listFromMatrix projectionMatrix
     GL.clear gl GL.COLOR_BUFFER_BIT
