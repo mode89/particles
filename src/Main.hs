@@ -2,10 +2,11 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main where
 
-import Control.Lens ((^.))
+import Control.Lens ((&), (^.), (.~), makeLenses)
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Control.Monad.State (runState, state)
 import qualified Data.ByteString as BS
@@ -46,6 +47,7 @@ import Linear.V3 (V3(..))
 import Linear.V4 (V4(..))
 import Linear.Vector (scaled)
 import qualified Reflex as RX
+import Reflex ((<@))
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
 import System.Random (mkStdGen, randomR, StdGen)
 
@@ -60,12 +62,20 @@ type Particles = [Particle]
 type ProjectionMatrix = M44 Double
 
 data Particle = Particle
-    { position :: V2 Float
-    , velocity :: V2 Float }
+    { _position :: V2 Float
+    , _velocity :: V2 Float }
+makeLenses ''Particle
 
 data CanvasSize = CanvasSize
     { width :: Int
     , height :: Int } deriving (Eq, Show)
+
+data BoundingBox = BoundingBox
+    { _left :: Float
+    , _right :: Float
+    , _bottom :: Float
+    , _top :: Float }
+makeLenses ''BoundingBox
 
 main :: JSM ()
 main = mainWidgetWithCss style $ do
@@ -102,7 +112,7 @@ main = mainWidgetWithCss style $ do
         modelUniform <- GL.getUniformLocation
             gl (Just program) ("u_model" :: Text)
         GL.uniformMatrix4fv gl (Just modelUniform) False $
-            listFromMatrix $ modelMatrix particleRadius
+            listFromMatrix $ modelMatrix $ realToFrac particleRadius
 
         projectionUniform <- GL.getUniformLocation
             gl (Just program) ("u_projection" :: Text)
@@ -141,7 +151,10 @@ main = mainWidgetWithCss style $ do
 
     let bProjectionMatrix = projectionMatrixFromCanvasSize <$> bCanvasSize
 
-    bParticles <- RX.accumB updateParticles initialParticles eTick
+    let bBoundingBox = boundingBoxFromCanvasSize <$> bCanvasSize
+
+    bParticles <- RX.accumB
+        updateParticles initialParticles (bBoundingBox <@ eTick)
     let eRender = RX.tag ((,) <$> bParticles <*> bProjectionMatrix) eAnimationFrame
 
     RX.performEvent_ $
@@ -184,8 +197,8 @@ render App{..} (particles, projectionMatrix) = do
         GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) particlesNum
     where
         translations = [n | p <- particles, n <- [ x p, y p ]]
-        x p = position p ^. _x
-        y p = position p ^. _y
+        x p = p ^. position ^. _x
+        y p = p ^. position ^. _y
 
 buildShader :: WebGLRenderingContext -> GLenum -> String -> JSM WebGLShader
 buildShader gl shaderType sourceCode = do
@@ -275,25 +288,81 @@ bufferSubDataFloat gl binding offset data' = do
     return ()
 
 particlesNum :: Int
-particlesNum = 10
+particlesNum = 1000
 
 initialParticles :: Particles
 initialParticles =
     take particlesNum . L.unfoldr (Just . randomParticle) $ mkStdGen 0
 
+maxInitialSpeed :: Float
+maxInitialSpeed = 1000
+
 randomParticle :: StdGen -> (Particle, StdGen)
 randomParticle = runState $ do
     x <- state $ randomR (100.0, 200.0)
     y <- state $ randomR (100.0, 200.0)
-    vx <- state $ randomR (-1000.0, 1000.0)
-    vy <- state $ randomR (-1000.0, 1000.0)
-    return $ Particle { position = V2 x y, velocity = V2 vx vy }
+    vx <- state $ randomR (-maxInitialSpeed, maxInitialSpeed)
+    vy <- state $ randomR (-maxInitialSpeed, maxInitialSpeed)
+    return $ Particle { _position = V2 x y, _velocity = V2 vx vy }
 
-updateParticles :: Particles -> RX.TickInfo -> Particles
-updateParticles particles RX.TickInfo{..} = update <$> particles where
-    update particle@Particle{..} = particle {
-        position = position + velocity * (realToFrac tickInterval)
-    }
+updateParticles :: Particles -> BoundingBox -> Particles
+updateParticles particles bbox = updateParticle bbox <$> particles
+
+updateParticle :: BoundingBox -> Particle -> Particle
+updateParticle bbox particle =
+    clampToBoundingBox bbox .
+    bounceOfWalls bbox $
+        particle & position .~ predictedPosition
+    where
+        predictedPosition =
+            particle ^. position +
+            particle ^. velocity * (realToFrac tickInterval)
+
+bounceOfWalls :: BoundingBox -> Particle -> Particle
+bounceOfWalls bbox = bounceLeft
+                   . bounceRight
+                   . bounceBottom
+                   . bounceTop
+    where
+        bounceLeft p =
+            if p ^. position ^. _x < (bbox ^. left + particleRadius)
+            then p & (velocity . _x) .~ (abs $ p ^. velocity ^. _x)
+            else p
+        bounceRight p =
+            if p ^. position ^. _x > (bbox ^. right - particleRadius)
+            then p & (velocity . _x) .~ (- (abs $ p ^. velocity ^. _x))
+            else p
+        bounceBottom p =
+            if p ^. position ^. _y < (bbox ^. bottom + particleRadius)
+            then p & (velocity . _y) .~ (abs $ p ^. velocity ^. _y)
+            else p
+        bounceTop p =
+            if p ^. position ^. _y > (bbox ^. top - particleRadius)
+            then p & (velocity . _y) .~ (- (abs $ p ^. velocity ^. _y))
+            else p
+
+clampToBoundingBox :: BoundingBox -> Particle -> Particle
+clampToBoundingBox bbox = clampLeft
+                        . clampRight
+                        . clampBottom
+                        . clampTop
+    where
+        clampLeft p =
+            if p ^. position ^. _x < (bbox ^. left + particleRadius)
+            then p & (position . _x) .~ (bbox ^. left + particleRadius)
+            else p
+        clampRight p =
+            if p ^. position ^. _x > (bbox ^. right - particleRadius)
+            then p & (position . _x) .~ (bbox ^. right - particleRadius)
+            else p
+        clampBottom p =
+            if p ^. position ^. _y < (bbox ^. bottom + particleRadius)
+            then p & (position . _y) .~ (bbox ^. bottom + particleRadius)
+            else p
+        clampTop p =
+            if p ^. position ^. _y > (bbox ^. top - particleRadius)
+            then p & (position . _y) .~ (bbox ^. top - particleRadius)
+            else p
 
 trackCanvasSize :: ( Monad m
                    , RX.MonadHold t m
@@ -340,8 +409,15 @@ projectionMatrixFromCanvasSize CanvasSize{..} =
 modelMatrix :: Double -> M44 Double
 modelMatrix radius = scaled $ V4 radius radius 1.0 1.0
 
-particleRadius :: Double
+particleRadius :: Float
 particleRadius = 10.0
 
 tickInterval :: Double
 tickInterval = 0.04
+
+boundingBoxFromCanvasSize :: CanvasSize -> BoundingBox
+boundingBoxFromCanvasSize CanvasSize{..} = BoundingBox
+    { _left = 0.0
+    , _right = fromIntegral width
+    , _bottom = 0.0
+    , _top = fromIntegral height }
