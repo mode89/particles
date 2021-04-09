@@ -41,11 +41,12 @@ import GHCJS.DOM.Types
 import qualified GHCJS.DOM.WebGLRenderingContextBase as GL
 import Language.Javascript.JSaddle (jsf, jsg, new)
 import Linear.Matrix ((!*!), identity, mkTransformationMat, M44, transpose)
+import Linear.Metric (dot, norm)
 import Linear.Projection (ortho)
 import Linear.V2 (V2(..), _x, _y)
 import Linear.V3 (V3(..))
 import Linear.V4 (V4(..))
-import Linear.Vector (scaled)
+import Linear.Vector ((^*), scaled)
 import qualified Reflex as RX
 import Reflex ((<@))
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
@@ -63,7 +64,7 @@ type ProjectionMatrix = M44 Double
 
 data Particle = Particle
     { _position :: V2 Float
-    , _velocity :: V2 Float }
+    , _velocity :: V2 Float } deriving (Eq, Show)
 makeLenses ''Particle
 
 data CanvasSize = CanvasSize
@@ -101,7 +102,7 @@ main = mainWidgetWithCss style $ do
         translationBuffer <- GL.createBuffer gl
         GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
         bufferDataSizeOnly gl GL.ARRAY_BUFFER
-            (fromIntegral $ particlesNum * 8) GL.DYNAMIC_DRAW
+            (fromIntegral $ maxParticlesNum * 8) GL.DYNAMIC_DRAW
 
         vertexShader <- buildShader gl GL.VERTEX_SHADER vertexShaderSource
         fragmentShader <- buildShader
@@ -194,7 +195,7 @@ render App{..} (particles, projectionMatrix) = do
     GL.bindBuffer gl GL.ARRAY_BUFFER Nothing
 
     drawArraysInstancedANGLE angleInstancedArrays
-        GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) particlesNum
+        GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) $ length particles
     where
         translations = [n | p <- particles, n <- [ x p, y p ]]
         x p = p ^. position ^. _x
@@ -287,15 +288,22 @@ bufferSubDataFloat gl binding offset data' = do
         , new (jsg ("Float32Array" :: Text)) [ data' ] )
     return ()
 
-particlesNum :: Int
-particlesNum = 1000
+maxParticlesNum :: Int
+maxParticlesNum = 10000
 
 initialParticles :: Particles
 initialParticles =
-    take particlesNum . L.unfoldr (Just . randomParticle) $ mkStdGen 0
+    -- initialParticles2
+    take 300 . L.unfoldr (Just . randomParticle) $ mkStdGen 0
+
+initialParticles2 :: Particles
+initialParticles2 =
+    [ Particle { _position = V2 100 100, _velocity = V2 200 0 }
+    , Particle { _position = V2 200 110, _velocity = V2 0 0 }
+    , Particle { _position = V2 200 90, _velocity = V2 0 0 } ]
 
 maxInitialSpeed :: Float
-maxInitialSpeed = 1000
+maxInitialSpeed = 200
 
 randomParticle :: StdGen -> (Particle, StdGen)
 randomParticle = runState $ do
@@ -306,17 +314,43 @@ randomParticle = runState $ do
     return $ Particle { _position = V2 x y, _velocity = V2 vx vy }
 
 updateParticles :: Particles -> BoundingBox -> Particles
-updateParticles particles bbox = updateParticle bbox <$> particles
+updateParticles particles bbox = updateParticle bbox particles <$> particles
 
-updateParticle :: BoundingBox -> Particle -> Particle
-updateParticle bbox particle =
+updateParticle :: BoundingBox -> Particles -> Particle -> Particle
+updateParticle bbox particles particle =
     clampToBoundingBox bbox .
-    bounceOfWalls bbox $
-        particle & position .~ predictedPosition
+    bounceOfWalls bbox .
+    integrateVelocity .
+    handleCollisions (filter (/= particle) particles) $
+        particle
+
+integrateVelocity :: Particle -> Particle
+integrateVelocity particle = particle & position .~
+    ( particle ^. position +
+      particle ^. velocity * (realToFrac tickInterval) )
+
+handleCollisions :: Particles -> Particle -> Particle
+handleCollisions particles particle =
+    foldr handleCollision particle particles
+
+handleCollision :: Particle -> Particle -> Particle
+handleCollision anotherParticle particleOfInterest =
+    if collision
+    then particleOfInterest
+        & velocity .~ (v1 - dp ^* (dot_dv_dp / (norm_dp ** 2)))
+    else particleOfInterest
     where
-        predictedPosition =
-            particle ^. position +
-            particle ^. velocity * (realToFrac tickInterval)
+        collision = onCollistionDistance && movingTowardsEachOther
+        onCollistionDistance = norm_dp < 2 * particleRadius
+        movingTowardsEachOther = dot_dv_dp < 0
+        norm_dp = norm dp
+        dot_dv_dp = dot dv dp
+        dv = v1 - v2
+        dp = p1 - p2
+        v1 = particleOfInterest ^. velocity
+        p1 = particleOfInterest ^. position
+        v2 = anotherParticle ^. velocity
+        p2 = anotherParticle ^. position
 
 bounceOfWalls :: BoundingBox -> Particle -> Particle
 bounceOfWalls bbox = bounceLeft
