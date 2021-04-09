@@ -80,7 +80,6 @@ makeLenses ''BoundingBox
 
 main :: JSM ()
 main = mainWidgetWithCss style $ do
-    (eAnimationFrame, triggerAnimationFrame) <- RX.newTriggerEvent
     (canvasEl, _) <- el' "canvas" $ text ""
     canvasRaw <- liftJSM . unsafeCastTo HTMLCanvasElement $
         _element_raw canvasEl
@@ -137,18 +136,12 @@ main = mainWidgetWithCss style $ do
         err <- GL.getError gl
         putStrLn $ "Error: " ++ show err
 
-        let loop = \timestamp -> do
-                        triggerAnimationFrame timestamp
-                        inAnimationFrame' loop
-                        return ()
-        inAnimationFrame' loop
-
         return App { canvas = canvasRaw, .. }
 
-    (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize
-        canvasRaw eAnimationFrame
-
     eTick <- RX.tickLossyFromPostBuildTime $ realToFrac tickInterval
+
+    (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize
+        canvasRaw eTick
 
     let bProjectionMatrix = projectionMatrixFromCanvasSize <$> bCanvasSize
 
@@ -156,7 +149,7 @@ main = mainWidgetWithCss style $ do
 
     bParticles <- RX.accumB
         updateParticles initialParticles (bBoundingBox <@ eTick)
-    let eRender = RX.tag ((,) <$> bParticles <*> bProjectionMatrix) eAnimationFrame
+    let eRender = RX.tag ((,) <$> bParticles <*> bProjectionMatrix) eTick
 
     RX.performEvent_ $
         liftIO . updateViewportSize (gl app) <$> eCanvasSizeChanged
