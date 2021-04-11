@@ -52,11 +52,12 @@ import Reflex ((<@))
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
 import System.Random (mkStdGen, randomR, StdGen)
 
-data App = App
-    { canvas :: HTMLCanvasElement
-    , gl :: WebGLRenderingContext
-    , angleInstancedArrays :: ANGLEInstancedArrays
-    , translationBuffer :: WebGLBuffer
+data GLContext = GLContext
+    { gl :: WebGLRenderingContext
+    , angleInstancedArrays :: ANGLEInstancedArrays }
+
+data GLObjects = GLObjects
+    { translationBuffer :: WebGLBuffer
     , projectionUniform :: WebGLUniformLocation }
 
 type Particles = [Particle]
@@ -83,60 +84,8 @@ main = mainWidgetWithCss style $ do
     (canvasEl, _) <- el' "canvas" $ text ""
     canvasRaw <- liftJSM . unsafeCastTo HTMLCanvasElement $
         _element_raw canvasEl
-    app <- liftJSM $ do
-        gl <- Canvas.getContextUnsafe
-            canvasRaw ("webgl" :: Text) ([] :: [()])
-                >>= unsafeCastTo WebGLRenderingContext
-
-        GL.clearColor gl 0.5 0.5 0.5 1.0
-
-        angleInstancedArrays <- uncheckedCastTo ANGLEInstancedArrays <$>
-            GL.getExtensionUnsafe gl ("ANGLE_instanced_arrays" :: Text)
-
-        vertexBuffer <- GL.createBuffer gl
-        GL.bindBuffer gl GL.ARRAY_BUFFER (Just vertexBuffer)
-        bufferDataFloat gl
-            GL.ARRAY_BUFFER particleGeometryData GL.STATIC_DRAW
-
-        translationBuffer <- GL.createBuffer gl
-        GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
-        bufferDataSizeOnly gl GL.ARRAY_BUFFER
-            (fromIntegral $ maxParticlesNum * 8) GL.DYNAMIC_DRAW
-
-        vertexShader <- buildShader gl GL.VERTEX_SHADER vertexShaderSource
-        fragmentShader <- buildShader
-            gl GL.FRAGMENT_SHADER fragmentShaderSource
-        program <- buildProgram gl vertexShader fragmentShader
-        GL.useProgram gl (Just program)
-
-        modelUniform <- GL.getUniformLocation
-            gl (Just program) ("u_model" :: Text)
-        GL.uniformMatrix4fv gl (Just modelUniform) False $
-            listFromMatrix $ modelMatrix $ realToFrac particleRadius
-
-        projectionUniform <- GL.getUniformLocation
-            gl (Just program) ("u_projection" :: Text)
-
-        GL.bindBuffer gl GL.ARRAY_BUFFER $ Just vertexBuffer
-        positionAttr <- fromIntegral <$> GL.getAttribLocation
-            gl (Just program) ("a_position" :: Text)
-        GL.enableVertexAttribArray gl positionAttr
-        GL.vertexAttribPointer gl positionAttr 2 GL.FLOAT False 0 0
-        vertexAttribDivisorANGLE angleInstancedArrays
-            (fromIntegral positionAttr) 0
-
-        GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
-        translationAttr <- fromIntegral <$> GL.getAttribLocation
-            gl (Just program) ("a_translation" :: Text)
-        GL.enableVertexAttribArray gl translationAttr
-        GL.vertexAttribPointer gl translationAttr 2 GL.FLOAT False 0 0
-        vertexAttribDivisorANGLE angleInstancedArrays
-            (fromIntegral translationAttr) 1
-
-        err <- GL.getError gl
-        putStrLn $ "Error: " ++ show err
-
-        return App { canvas = canvasRaw, .. }
+    glContext <- liftJSM $ getGLContext canvasRaw
+    glObjects <- liftJSM $ initGL glContext
 
     eTick <- RX.tickLossyFromPostBuildTime $ realToFrac tickInterval
 
@@ -152,10 +101,72 @@ main = mainWidgetWithCss style $ do
     let eRender = RX.tag ((,) <$> bParticles <*> bProjectionMatrix) eTick
 
     RX.performEvent_ $
-        liftIO . updateViewportSize (gl app) <$> eCanvasSizeChanged
-    RX.performEvent_ $ liftIO . (render app) <$> eRender
+        liftIO . updateViewportSize glContext <$> eCanvasSizeChanged
+    RX.performEvent_ $ liftIO . (render glContext glObjects) <$> eRender
 
     return ()
+
+getGLContext :: HTMLCanvasElement -> IO GLContext
+getGLContext canvas = do
+    gl <- do
+        context <- Canvas.getContextUnsafe
+            canvas ("webgl" :: Text) ([] :: [()])
+        webglContext <- unsafeCastTo WebGLRenderingContext context
+        return webglContext
+    angleInstancedArrays <- uncheckedCastTo ANGLEInstancedArrays <$>
+        GL.getExtensionUnsafe gl ("ANGLE_instanced_arrays" :: Text)
+    return $ GLContext gl angleInstancedArrays
+
+initGL :: GLContext -> IO GLObjects
+initGL GLContext{..} = do
+    GL.clearColor gl 0.5 0.5 0.5 1.0
+
+    vertexBuffer <- GL.createBuffer gl
+    GL.bindBuffer gl GL.ARRAY_BUFFER (Just vertexBuffer)
+    bufferDataFloat gl
+        GL.ARRAY_BUFFER particleGeometryData GL.STATIC_DRAW
+
+    translationBuffer <- GL.createBuffer gl
+    GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
+    bufferDataSizeOnly gl GL.ARRAY_BUFFER
+        (fromIntegral $ maxParticlesNum * 8) GL.DYNAMIC_DRAW
+
+    vertexShader <- buildShader gl GL.VERTEX_SHADER vertexShaderSource
+    fragmentShader <- buildShader
+        gl GL.FRAGMENT_SHADER fragmentShaderSource
+    program <- buildProgram gl vertexShader fragmentShader
+    GL.useProgram gl (Just program)
+
+    modelUniform <- GL.getUniformLocation
+        gl (Just program) ("u_model" :: Text)
+    GL.uniformMatrix4fv gl (Just modelUniform) False $
+        listFromMatrix $ modelMatrix $ realToFrac particleRadius
+
+    projectionUniform <- GL.getUniformLocation
+        gl (Just program) ("u_projection" :: Text)
+
+    GL.bindBuffer gl GL.ARRAY_BUFFER $ Just vertexBuffer
+    positionAttr <- fromIntegral <$> GL.getAttribLocation
+        gl (Just program) ("a_position" :: Text)
+    GL.enableVertexAttribArray gl positionAttr
+    GL.vertexAttribPointer gl positionAttr 2 GL.FLOAT False 0 0
+    vertexAttribDivisorANGLE angleInstancedArrays
+        (fromIntegral positionAttr) 0
+
+    GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
+    translationAttr <- fromIntegral <$> GL.getAttribLocation
+        gl (Just program) ("a_translation" :: Text)
+    GL.enableVertexAttribArray gl translationAttr
+    GL.vertexAttribPointer gl translationAttr 2 GL.FLOAT False 0 0
+    vertexAttribDivisorANGLE angleInstancedArrays
+        (fromIntegral translationAttr) 1
+
+    err <- GL.getError gl
+    putStrLn $ "Error: " ++ show err
+
+    return $ GLObjects
+        translationBuffer
+        projectionUniform
 
 vertexShaderSource :: String
 vertexShaderSource = L.intercalate "\n"
@@ -175,10 +186,11 @@ fragmentShaderSource = L.intercalate "\n"
     , "   gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
     , "}" ]
 
-render :: App
-     -> (Particles, ProjectionMatrix)
-     -> IO ()
-render App{..} (particles, projectionMatrix) = do
+render :: GLContext
+       -> GLObjects
+       -> (Particles, ProjectionMatrix)
+       -> IO ()
+render GLContext{..} GLObjects{..} (particles, projectionMatrix) = do
     GL.uniformMatrix4fv gl (Just projectionUniform) False $
         listFromMatrix projectionMatrix
     GL.clear gl GL.COLOR_BUFFER_BIT
@@ -418,8 +430,8 @@ trackCanvasSize canvas event = do
         ) <$> event
     return (bSize, eSizeChanged)
 
-updateViewportSize :: WebGLRenderingContext -> CanvasSize -> JSM ()
-updateViewportSize gl CanvasSize{..} =
+updateViewportSize :: GLContext -> CanvasSize -> JSM ()
+updateViewportSize GLContext{..} CanvasSize{..} =
     GL.viewport gl 0 0 (fromIntegral width) (fromIntegral height)
 
 projectionMatrixFromCanvasSize :: CanvasSize -> M44 Double
