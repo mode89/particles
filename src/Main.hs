@@ -27,8 +27,6 @@ import GHCJS.DOM.Types
     , GLintptr
     , GObject(..)
     , HTMLCanvasElement(..)
-    , JSM
-    , liftJSM
     , RenderingContext(..)
     , toJSVal
     , uncheckedCastTo
@@ -39,7 +37,7 @@ import GHCJS.DOM.Types
     , WebGLShader
     , WebGLUniformLocation )
 import qualified GHCJS.DOM.WebGLRenderingContextBase as GL
-import Language.Javascript.JSaddle (jsf, jsg, new)
+import Language.Javascript.JSaddle (jsf, jsg, JSM, liftJSM, MonadJSM, new)
 import Linear.Matrix ((!*!), identity, mkTransformationMat, M44, transpose)
 import Linear.Metric (dot, norm)
 import Linear.Projection (ortho)
@@ -79,7 +77,7 @@ data BoundingBox = BoundingBox
     , _top :: Float }
 makeLenses ''BoundingBox
 
-main :: JSM ()
+main :: IO ()
 main = mainWidgetWithCss style $ do
     (canvasEl, _) <- el' "canvas" $ text ""
     canvasRaw <- liftJSM . unsafeCastTo HTMLCanvasElement $
@@ -101,12 +99,12 @@ main = mainWidgetWithCss style $ do
     let eRender = RX.tag ((,) <$> bParticles <*> bProjectionMatrix) eTick
 
     RX.performEvent_ $
-        liftIO . updateViewportSize glContext <$> eCanvasSizeChanged
-    RX.performEvent_ $ liftIO . (render glContext glObjects) <$> eRender
+        liftJSM . updateViewportSize glContext <$> eCanvasSizeChanged
+    RX.performEvent_ $ liftJSM . (render glContext glObjects) <$> eRender
 
     return ()
 
-getGLContext :: HTMLCanvasElement -> IO GLContext
+getGLContext :: HTMLCanvasElement -> JSM GLContext
 getGLContext canvas = do
     gl <- do
         context <- Canvas.getContextUnsafe
@@ -117,7 +115,7 @@ getGLContext canvas = do
         GL.getExtensionUnsafe gl ("ANGLE_instanced_arrays" :: Text)
     return $ GLContext gl angleInstancedArrays
 
-initGL :: GLContext -> IO GLObjects
+initGL :: GLContext -> JSM GLObjects
 initGL GLContext{..} = do
     GL.clearColor gl 0.5 0.5 0.5 1.0
 
@@ -162,7 +160,7 @@ initGL GLContext{..} = do
         (fromIntegral translationAttr) 1
 
     err <- GL.getError gl
-    putStrLn $ "Error: " ++ show err
+    liftIO $ putStrLn $ "Error: " ++ show err
 
     return $ GLObjects
         translationBuffer
@@ -189,7 +187,7 @@ fragmentShaderSource = L.intercalate "\n"
 render :: GLContext
        -> GLObjects
        -> (Particles, ProjectionMatrix)
-       -> IO ()
+       -> JSM ()
 render GLContext{..} GLObjects{..} (particles, projectionMatrix) = do
     GL.uniformMatrix4fv gl (Just projectionUniform) False $
         listFromMatrix projectionMatrix
@@ -212,7 +210,7 @@ buildShader gl shaderType sourceCode = do
     GL.shaderSource gl (Just shader) sourceCode
     GL.compileShader gl $ Just shader
     log <- GL.getShaderInfoLogUnsafe gl $ Just shader
-    putStrLn $ "Shader compilation log: " ++ log
+    liftIO $ putStrLn $ "Shader compilation log: " ++ log
     return shader
 
 buildProgram :: WebGLRenderingContext
@@ -225,7 +223,7 @@ buildProgram gl vertexShader fragmentShader = do
     GL.attachShader gl (Just program) (Just fragmentShader)
     GL.linkProgram gl (Just program)
     log <- GL.getProgramInfoLogUnsafe gl (Just program)
-    putStrLn $ "Program log: " ++ log
+    liftIO $ putStrLn $ "Program log: " ++ log
     return program
 
 style :: BS.ByteString
@@ -253,12 +251,6 @@ particleGeometryNumSlices = 7
 
 listFromMatrix :: M44 a -> [a]
 listFromMatrix = concat . fmap Foldable.toList . Foldable.toList
-
-consoleLog :: String -> IO ()
-consoleLog = js_consoleLog . JSS.pack
-
-foreign import javascript unsafe "console.log($1)"
-    js_consoleLog :: JSS.JSString -> IO ()
 
 bufferDataFloat :: WebGLRenderingContext
                 -> GLenum
@@ -405,7 +397,7 @@ clampToBoundingBox bbox = clampLeft
 
 trackCanvasSize :: ( Monad m
                    , RX.MonadHold t m
-                   , MonadIO (RX.Performable m)
+                   , MonadJSM (RX.Performable m)
                    , RX.MonadSample t (RX.Performable m)
                    , RX.PerformEvent t m
                    , RX.TriggerEvent t m )
@@ -417,13 +409,13 @@ trackCanvasSize canvas event = do
     bSize <- RX.hold (CanvasSize 0 0) eSizeChanged
     RX.performEvent_ $ (\_ -> do
             CanvasSize{..} <- RX.sample bSize
-            liftIO $ do
+            liftJSM $ do
                 width' <- floor <$> Element.getClientWidth canvas
                 height' <- floor <$> Element.getClientHeight canvas
                 if width' /= width || height' /= height then do
                     Canvas.setWidth canvas (fromIntegral width')
                     Canvas.setHeight canvas (fromIntegral height')
-                    triggerSizeChanged $ CanvasSize width' height'
+                    liftIO $ triggerSizeChanged $ CanvasSize width' height'
                     return ()
                 else
                     return ()
