@@ -19,3 +19,13 @@ data BoundingBox = BoundingBox
     , _bottom :: Float
     , _top :: Float } deriving (Eq, Show)
 makeLenses ''BoundingBox
+
+data ParticlesMap = ParticlesMap
+    { buckets :: V.Vector Particles
+    , boundingBox :: BoundingBox
+    , width :: Int
+    , height :: Int
+    , cellSize :: CellSize } deriving (Eq, Show)
+
+type CellIndex = Int
+type CellSize = Float
