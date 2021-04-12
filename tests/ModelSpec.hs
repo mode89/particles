@@ -3,6 +3,7 @@ module ModelSpec where
 import Control.Lens ((^.))
 import Linear.V2 (V2(..))
 import Particles.Model
+import Particles.Types
 import Test.Hspec
 
 modelSpec :: Spec

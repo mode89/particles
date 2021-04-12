@@ -1,38 +1,20 @@
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module Particles.Model where
 
-import Control.Lens ((&), (^.), (.~), makeLenses)
+import Control.Lens ((&), (^.), (.~))
 import Control.Monad.State (runState, state)
 import qualified Data.List as L
-import qualified Data.Vector as V
 import Linear.Metric (dot, norm)
 import Linear.V2 (V2(..), _x, _y)
 import Linear.Vector ((^*), scaled)
+import Particles.Types
 import System.Random (mkStdGen, randomR, StdGen)
 
 maxInitialSpeed = 400 :: Float
 maxParticlesNum = 10000 :: Int
 particleRadius = 10.0 :: Float
 tickInterval = 0.04 :: Double
-
-data Particle = Particle
-    { _position :: V2 Float
-    , _velocity :: V2 Float } deriving (Eq, Show)
-makeLenses ''Particle
-
-type Particles = [Particle]
-
-type CellIndex = Int
-type CellSize = Float
-
-data BoundingBox = BoundingBox
-    { _left :: Float
-    , _right :: Float
-    , _bottom :: Float
-    , _top :: Float }
-makeLenses ''BoundingBox
 
 initialParticles :: Particles
 initialParticles =

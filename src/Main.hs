@@ -43,6 +43,7 @@ import Linear.V3 (V3(..))
 import Linear.V4 (V4(..))
 import Linear.Vector (scaled)
 import qualified Particles.Model as Model
+import Particles.Types
 import qualified Reflex as RX
 import Reflex ((<@))
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
@@ -170,7 +171,7 @@ fragmentShaderSource = L.intercalate "\n"
 
 render :: GLContext
        -> GLObjects
-       -> (Model.Particles, ProjectionMatrix)
+       -> (Particles, ProjectionMatrix)
        -> JSM ()
 render GLContext{..} GLObjects{..} (particles, projectionMatrix) = do
     GL.uniformMatrix4fv gl (Just projectionUniform) False $
@@ -185,8 +186,8 @@ render GLContext{..} GLObjects{..} (particles, projectionMatrix) = do
         GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) $ length particles
     where
         translations = [n | p <- particles, n <- [ x p, y p ]]
-        x p = p ^. Model.position ^. _x
-        y p = p ^. Model.position ^. _y
+        x p = p ^. position ^. _x
+        y p = p ^. position ^. _y
 
 buildShader :: WebGLRenderingContext -> GLenum -> String -> JSM WebGLShader
 buildShader gl shaderType sourceCode = do
@@ -314,8 +315,8 @@ projectionMatrixFromCanvasSize CanvasSize{..} =
 modelMatrix :: Double -> M44 Double
 modelMatrix radius = scaled $ V4 radius radius 1.0 1.0
 
-boundingBoxFromCanvasSize :: CanvasSize -> Model.BoundingBox
-boundingBoxFromCanvasSize CanvasSize{..} = Model.BoundingBox
+boundingBoxFromCanvasSize :: CanvasSize -> BoundingBox
+boundingBoxFromCanvasSize CanvasSize{..} = BoundingBox
     { _left = 0.0
     , _right = fromIntegral width
     , _bottom = 0.0
