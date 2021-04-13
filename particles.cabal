@@ -43,6 +43,7 @@ executable particles
                      , reflex
                      , reflex-dom
                      , text
+                     , witherable
   if impl(ghcjs)
     build-depends:     ghcjs-base
   if impl(ghc)

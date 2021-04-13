@@ -13,6 +13,7 @@ import Data.Int (Int32)
 import qualified Data.List as L
 import qualified Data.JSString as JSS
 import Data.Text (Text)
+import Data.Witherable (catMaybes)
 import GHCJS.DOM (inAnimationFrame')
 import GHCJS.DOM.ANGLEInstancedArrays
     ( drawArraysInstancedANGLE
@@ -72,19 +73,21 @@ main = mainWidgetWithCss style $ do
 
     eTick <- RX.tickLossyFromPostBuildTime $ realToFrac Model.tickInterval
 
-    (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize
-        canvasRaw eTick
+    (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize canvasRaw eTick
 
-    let bProjectionMatrix = projectionMatrixFromCanvasSize <$> bCanvasSize
+    let bProjectionMatrix =
+            fmap projectionMatrixFromCanvasSize <$> bCanvasSize
 
-    let bBoundingBox = boundingBoxFromCanvasSize <$> bCanvasSize
+    let bBoundingBox = fmap boundingBoxFromCanvasSize <$> bCanvasSize
 
     bParticles <- RX.accumB Model.updateParticles Model.initialParticles $
-        bBoundingBox <@ eTick
-    let eRender = RX.tag ((,) <$> bParticles <*> bProjectionMatrix) eTick
+        RX.tagMaybe bBoundingBox eTick
+    let bRenderingParams = RX.ffor2 bParticles bProjectionMatrix $
+            \ps pm -> ((,) ps) <$> pm
+    let eRender = RX.tagMaybe bRenderingParams eTick
 
-    RX.performEvent_ $
-        liftJSM . updateViewportSize glContext <$> eCanvasSizeChanged
+    RX.performEvent_ $ liftJSM . updateViewportSize glContext <$>
+        catMaybes eCanvasSizeChanged
     RX.performEvent_ $ liftJSM . (render glContext glObjects) <$> eRender
 
     return ()
@@ -278,23 +281,29 @@ trackCanvasSize :: ( Monad m
                    , RX.TriggerEvent t m )
                 => HTMLCanvasElement
                 -> RX.Event t a
-                -> m (RX.Behavior t CanvasSize, RX.Event t CanvasSize)
+                -> m ( RX.Behavior t (Maybe CanvasSize)
+                     , RX.Event t (Maybe CanvasSize) )
 trackCanvasSize canvas event = do
     (eSizeChanged, triggerSizeChanged) <- RX.newTriggerEvent
-    bSize <- RX.hold (CanvasSize 0 0) eSizeChanged
-    RX.performEvent_ $ (\_ -> do
-            CanvasSize{..} <- RX.sample bSize
+    bSize <- RX.hold Nothing eSizeChanged
+    let performer = \_ -> do
+            currentSize <- RX.sample bSize
             liftJSM $ do
                 width' <- floor <$> Element.getClientWidth canvas
                 height' <- floor <$> Element.getClientHeight canvas
-                if width' /= width || height' /= height then do
-                    Canvas.setWidth canvas (fromIntegral width')
-                    Canvas.setHeight canvas (fromIntegral height')
-                    liftIO $ triggerSizeChanged $ CanvasSize width' height'
-                    return ()
-                else
-                    return ()
-        ) <$> event
+                let triggerEvent = do
+                        Canvas.setWidth canvas $ fromIntegral width'
+                        Canvas.setHeight canvas $ fromIntegral height'
+                        liftIO $ triggerSizeChanged $
+                            Just $ CanvasSize width' height'
+                        return ()
+                case currentSize of
+                    Just (CanvasSize{..}) ->
+                        if width' /= width || height' /= height
+                        then triggerEvent
+                        else return ()
+                    Nothing -> triggerEvent
+    RX.performEvent_ $ performer <$> event
     return (bSize, eSizeChanged)
 
 updateViewportSize :: GLContext -> CanvasSize -> JSM ()
