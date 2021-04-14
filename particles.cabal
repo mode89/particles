@@ -59,6 +59,7 @@ executable particles-tests
   other-modules:       ModelSpec
                      , MapSpec
   build-depends:       base >=4.12
+                     , containers
                      , hspec
                      , lens
                      , linear

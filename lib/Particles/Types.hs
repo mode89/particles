@@ -6,8 +6,10 @@ import Control.Lens (makeLenses)
 import qualified Data.Vector as V
 import Linear.V2 (V2)
 
+type Position = V2 Float
+
 data Particle = Particle
-    { _position :: V2 Float
+    { _position :: Position
     , _velocity :: V2 Float } deriving (Eq, Show)
 makeLenses ''Particle
 
@@ -24,8 +26,7 @@ data ParticlesMap = ParticlesMap
     { buckets :: V.Vector Particles
     , boundingBox :: BoundingBox
     , width :: Int
-    , height :: Int
-    , cellSize :: CellSize } deriving (Eq, Show)
+    , bucketDim :: BucketDim } deriving (Eq, Show)
 
-type CellIndex = Int
-type CellSize = Float
+type BucketIndex = Int
+type BucketDim = Float

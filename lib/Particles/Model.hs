@@ -8,6 +8,7 @@ import qualified Data.List as L
 import Linear.Metric (dot, norm)
 import Linear.V2 (V2(..), _x, _y)
 import Linear.Vector ((^*), scaled)
+import Particles.Map
 import Particles.Types
 import System.Random (mkStdGen, randomR, StdGen)
 
@@ -19,7 +20,7 @@ tickInterval = 0.04 :: Double
 initialParticles :: Particles
 initialParticles =
     -- initialParticles2
-    take 1000 . L.unfoldr (Just . randomParticle) $ mkStdGen 0
+    take 500 . L.unfoldr (Just . randomParticle) $ mkStdGen 0
 
 initialParticles2 :: Particles
 initialParticles2 =
@@ -37,14 +38,16 @@ randomParticle = runState $ do
 
 updateParticles :: Particles -> BoundingBox -> Particles
 updateParticles particles bbox =
-    updateParticle bbox particles <$> particles
+    updateParticle bbox particlesMap <$> particles
+    where
+        particlesMap = makeParticlesMap bbox particles
 
-updateParticle :: BoundingBox -> Particles -> Particle -> Particle
-updateParticle bbox particles particle =
+updateParticle :: BoundingBox -> ParticlesMap -> Particle -> Particle
+updateParticle bbox particlesMap particle =
     clampToBoundingBox bbox .
     bounceOfWalls bbox .
     integrateVelocity .
-    handleCollisions (filter (/= particle) particles) $
+    handleCollisions particlesMap $
         particle
 
 integrateVelocity :: Particle -> Particle
@@ -52,9 +55,10 @@ integrateVelocity particle = particle & position .~
     ( particle ^. position +
       particle ^. velocity * (realToFrac tickInterval) )
 
-handleCollisions :: Particles -> Particle -> Particle
-handleCollisions particles particle =
-    foldr handleCollision particle particles
+handleCollisions :: ParticlesMap -> Particle -> Particle
+handleCollisions particlesMap particle =
+    foldr handleCollision particle $
+        neighbourParticles particlesMap particle
 
 handleCollision :: Particle -> Particle -> Particle
 handleCollision anotherParticle particleOfInterest =
