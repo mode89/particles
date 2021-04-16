@@ -45,6 +45,7 @@ import Linear.V4 (V4(..))
 import Linear.Vector (scaled)
 import qualified Particles.Model as Model
 import Particles.Types
+import Particles.UI.GL
 import qualified Reflex as RX
 import Reflex ((<@))
 import Reflex.Dom (el', _element_raw, mainWidgetWithCss, text)
@@ -239,39 +240,6 @@ particleGeometryNumSlices = 7
 
 listFromMatrix :: M44 a -> [a]
 listFromMatrix = concat . fmap Foldable.toList . Foldable.toList
-
-bufferDataFloat :: WebGLRenderingContext
-                -> GLenum
-                -> [Float]
-                -> GLenum
-                -> JSM ()
-bufferDataFloat gl binding data' usage = do
-    toJSVal gl ^. jsf ("bufferData" :: Text)
-        ( binding
-        , new (jsg ("Float32Array" :: Text)) [ data' ]
-        , usage )
-    return ()
-
-bufferDataSizeOnly :: WebGLRenderingContext
-                   -> GLenum
-                   -> Int32
-                   -> GLenum
-                   -> JSM ()
-bufferDataSizeOnly gl binding size usage = do
-    toJSVal gl ^. jsf ("bufferData" :: Text) ( binding, size, usage )
-    return ()
-
-bufferSubDataFloat :: WebGLRenderingContext
-                   -> GLenum
-                   -> Int32
-                   -> [Float]
-                   -> JSM ()
-bufferSubDataFloat gl binding offset data' = do
-    toJSVal gl ^. jsf ("bufferSubData" :: Text)
-        ( binding
-        , offset
-        , new (jsg ("Float32Array" :: Text)) [ data' ] )
-    return ()
 
 trackCanvasSize :: ( Monad m
                    , RX.MonadHold t m
