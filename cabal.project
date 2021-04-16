@@ -1,0 +1,8 @@
+packages:
+    particles/particles.cabal
+
+compiler:
+    ghcjs
+
+store-dir:
+    .cabal-store

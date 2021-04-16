@@ -1,4 +1,7 @@
 .cabal-sandbox*
+.cabal-store
 .sandbox
+cabal.project.local
 cabal.sandbox.config
 dist
+dist-newstyle
