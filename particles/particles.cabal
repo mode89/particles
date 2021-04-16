@@ -78,5 +78,6 @@ executable particles-benchmark
                      , criterion
                      , ghcjs-dom
                      , particles
+                     , vector
   hs-source-dirs:      benchmark
   default-language:    Haskell2010
