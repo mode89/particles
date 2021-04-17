@@ -19,14 +19,7 @@ tickInterval = 0.04 :: Double
 
 initialParticles :: BoundingBox -> Particles
 initialParticles bbox =
-    -- initialParticles2
     take 500 . L.unfoldr (Just . randomParticle bbox) $ mkStdGen 0
-
-initialParticles2 :: Particles
-initialParticles2 =
-    [ Particle { _position = V2 100 100, _velocity = V2 200 0 }
-    , Particle { _position = V2 200 110, _velocity = V2 0 0 }
-    , Particle { _position = V2 200 90, _velocity = V2 0 0 } ]
 
 randomParticle :: BoundingBox -> StdGen -> (Particle, StdGen)
 randomParticle BoundingBox{..} = runState $ do
