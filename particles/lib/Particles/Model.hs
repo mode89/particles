@@ -17,10 +17,10 @@ maxParticlesNum = 10000 :: Int
 particleRadius = 10.0 :: Float
 tickInterval = 0.04 :: Double
 
-initialParticles :: Particles
-initialParticles =
+initialParticles :: BoundingBox -> Particles
+initialParticles bbox =
     -- initialParticles2
-    take 500 . L.unfoldr (Just . randomParticle) $ mkStdGen 0
+    take 500 . L.unfoldr (Just . randomParticle bbox) $ mkStdGen 0
 
 initialParticles2 :: Particles
 initialParticles2 =
@@ -28,10 +28,10 @@ initialParticles2 =
     , Particle { _position = V2 200 110, _velocity = V2 0 0 }
     , Particle { _position = V2 200 90, _velocity = V2 0 0 } ]
 
-randomParticle :: StdGen -> (Particle, StdGen)
-randomParticle = runState $ do
-    x <- state $ randomR (100.0, 200.0)
-    y <- state $ randomR (100.0, 200.0)
+randomParticle :: BoundingBox -> StdGen -> (Particle, StdGen)
+randomParticle BoundingBox{..} = runState $ do
+    x <- state $ randomR (_left, _right)
+    y <- state $ randomR (_bottom, _top)
     vx <- state $ randomR (-maxInitialSpeed, maxInitialSpeed)
     vy <- state $ randomR (-maxInitialSpeed, maxInitialSpeed)
     return $ Particle { _position = V2 x y, _velocity = V2 vx vy }

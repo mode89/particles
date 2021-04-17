@@ -81,10 +81,10 @@ main = mainWidgetWithCss style $ do
 
     let bBoundingBox = fmap boundingBoxFromCanvasSize <$> bCanvasSize
 
-    bParticles <- RX.accumB Model.updateParticles Model.initialParticles $
+    bParticles <- RX.accumB updateParticles Nothing $
         RX.tagMaybe bBoundingBox eTick
     let bRenderingParams = RX.ffor2 bParticles bProjectionMatrix $
-            \ps pm -> ((,) ps) <$> pm
+            \ps pm -> (,) <$> ps <*> pm
     let eRender = RX.tagMaybe bRenderingParams eTick
 
     RX.performEvent_ $ liftJSM . updateViewportSize glContext <$>
@@ -92,6 +92,12 @@ main = mainWidgetWithCss style $ do
     RX.performEvent_ $ liftJSM . (render glContext glObjects) <$> eRender
 
     return ()
+
+updateParticles :: Maybe Particles -> BoundingBox -> Maybe Particles
+updateParticles = fmap Just
+                . maybe
+                    Model.initialParticles
+                    Model.updateParticles
 
 getGLContext :: HTMLCanvasElement -> JSM GLContext
 getGLContext canvas = do
