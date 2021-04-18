@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 
 module Main where
 
@@ -9,6 +10,8 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+
+#ifdef __GHCJS__
 import qualified GHCJS.DOM as DOM
 import qualified GHCJS.DOM.Document as Document
 import qualified GHCJS.DOM.HTMLCanvasElement as Canvas
@@ -17,28 +20,23 @@ import qualified GHCJS.DOM.Types as DOM
 import qualified GHCJS.DOM.WebGLRenderingContextBase as GL
 import qualified Particles.UI.GL as PGL
 
+data DOMEnvironment = DOMEnvironment {
+    gl :: DOM.WebGLRenderingContext,
+    bufferData :: [Float]
+    }
+#endif
+
 main :: IO ()
 main = do
-    document <- DOM.currentDocumentUnchecked
-    body <- Document.getBodyUnchecked document
-    canvas <- do
-        element <- Document.createElement document "canvas"
-        canvasElement <- DOM.unsafeCastTo DOM.HTMLCanvasElement element
-        return canvasElement
-    Node.appendChild_ body canvas
-    gl <- do
-        context <- Canvas.getContextUnsafe canvas "webgl" ([] :: [Double])
-        context' <- DOM.unsafeCastTo DOM.WebGLRenderingContext context
-        return context'
-    buffer <- GL.createBuffer gl
-    GL.bindBuffer gl GL.ARRAY_BUFFER (Just buffer)
-    PGL.bufferDataSizeOnly gl GL.ARRAY_BUFFER 16000000 GL.DYNAMIC_DRAW
-    let !bufferData = [0 .. 20000]
     containers <- prepareContainers
+#ifdef __GHCJS__
+    domEnv <- prepareDOMEnvironment
+#endif
     defaultMain [
-          bench "bufferSubDataFloat" $ nfIO $
-            PGL.bufferSubDataFloat gl GL.ARRAY_BUFFER 0 bufferData
-        , bgroupContainers containers
+#ifdef __GHCJS__
+        bgroupGraphics domEnv,
+#endif
+        bgroupContainers containers
         ]
 
 bgroupContainers :: ( [Float]
@@ -78,3 +76,29 @@ prepareContainers = do
     vm <- VM.generate 20000 fromIntegral
     vum <- VUM.generate 20000 fromIntegral
     return (l, v, vu, vm, vum)
+
+#ifdef __GHCJS__
+bgroupGraphics (DOMEnvironment gl bufferData) = bgroup "dom" [
+    bench "bufferSubDataFloat" $ nfIO $
+        PGL.bufferSubDataFloat gl GL.ARRAY_BUFFER 0 bufferData
+    ]
+
+prepareDOMEnvironment :: IO DOMEnvironment
+prepareDOMEnvironment = do
+    document <- DOM.currentDocumentUnchecked
+    body <- Document.getBodyUnchecked document
+    canvas <- do
+        element <- Document.createElement document "canvas"
+        canvasElement <- DOM.unsafeCastTo DOM.HTMLCanvasElement element
+        return canvasElement
+    Node.appendChild_ body canvas
+    gl <- do
+        context <- Canvas.getContextUnsafe canvas "webgl" ([] :: [Double])
+        context' <- DOM.unsafeCastTo DOM.WebGLRenderingContext context
+        return context'
+    buffer <- GL.createBuffer gl
+    GL.bindBuffer gl GL.ARRAY_BUFFER (Just buffer)
+    PGL.bufferDataSizeOnly gl GL.ARRAY_BUFFER 16000000 GL.DYNAMIC_DRAW
+    let !bufferData = [0 .. 20000]
+    return $ DOMEnvironment gl bufferData
+#endif
