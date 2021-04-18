@@ -16,9 +16,9 @@ import Particles.Map
 import Particles.Types
 import System.Random (mkStdGen, randomR, StdGen)
 
-maxInitialSpeed = 400 :: Float
+maxInitialSpeed = 400 :: Double
 maxParticlesNum = 10000 :: Int
-particleRadius = 10.0 :: Float
+particleRadius = 10.0 :: Double
 tickInterval = 0.04 :: Double
 
 initialParticles :: BoundingBox -> Particles

@@ -13,7 +13,7 @@ import Language.Javascript.JSaddle (jsf, jsg, JSM, new)
 
 bufferDataFloat :: WebGLRenderingContext
                 -> GLenum
-                -> [Float]
+                -> [Double]
                 -> GLenum
                 -> JSM ()
 bufferDataFloat gl binding data' usage = do
@@ -35,7 +35,7 @@ bufferDataSizeOnly gl binding size usage = do
 bufferSubDataFloat :: WebGLRenderingContext
                    -> GLenum
                    -> Int32
-                   -> [Float]
+                   -> [Double]
                    -> JSM ()
 bufferSubDataFloat gl binding offset data' = do
     toJSVal gl ^. jsf ("bufferSubData" :: Text)

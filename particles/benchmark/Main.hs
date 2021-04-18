@@ -24,7 +24,7 @@ import qualified Particles.UI.GL as PGL
 
 data DOMEnvironment = DOMEnvironment {
     gl :: DOM.WebGLRenderingContext,
-    bufferData :: [Float]
+    bufferData :: [Double]
     }
 #endif
 

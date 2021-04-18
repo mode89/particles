@@ -232,7 +232,7 @@ style = BS.intercalate "\n"
     , "    height: 100vh;"
     , "}" ]
 
-particleGeometryData :: [Float]
+particleGeometryData :: [Double]
 particleGeometryData = concat $ center : perimeter where
     concat ps = [n | (x, y) <- ps, n <- [x, y]]
     center = (0.0, 0.0)

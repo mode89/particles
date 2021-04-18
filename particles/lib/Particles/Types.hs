@@ -7,11 +7,11 @@ import Control.Lens (makeLenses)
 import qualified Data.Vector as V
 import Linear.V2 (V2)
 
-type Position = V2 Float
+type Position = V2 Double
 
 data Particle = Particle
     { _position :: Position
-    , _velocity :: V2 Float } deriving (Eq, Show)
+    , _velocity :: V2 Double } deriving (Eq, Show)
 makeLenses ''Particle
 
 instance NFData Particle where rnf = rwhnf
@@ -19,10 +19,10 @@ instance NFData Particle where rnf = rwhnf
 type Particles = [Particle]
 
 data BoundingBox = BoundingBox
-    { _left :: Float
-    , _right :: Float
-    , _bottom :: Float
-    , _top :: Float } deriving (Eq, Show)
+    { _left :: Double
+    , _right :: Double
+    , _bottom :: Double
+    , _top :: Double } deriving (Eq, Show)
 makeLenses ''BoundingBox
 
 data ParticlesMap = ParticlesMap
@@ -32,4 +32,4 @@ data ParticlesMap = ParticlesMap
     , bucketDim :: BucketDim } deriving (Eq, Show)
 
 type BucketIndex = Int
-type BucketDim = Float
+type BucketDim = Double

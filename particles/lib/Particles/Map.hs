@@ -8,7 +8,7 @@ import qualified Data.Vector as V
 import Linear.V2 (V2(..), _x, _y)
 import Particles.Types
 
-mapBucketDim = 50 :: Float
+mapBucketDim = 50 :: Double
 
 makeParticlesMap :: BoundingBox -> Particles -> ParticlesMap
 makeParticlesMap bbox particles =
