@@ -10,6 +10,8 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+import qualified Particles.Model as P
+import qualified Particles.Types as P
 
 #ifdef __GHCJS__
 import qualified GHCJS.DOM as DOM
@@ -28,6 +30,8 @@ data DOMEnvironment = DOMEnvironment {
 
 main :: IO ()
 main = do
+    let bbox = P.BoundingBox 0 1920 0 1080
+    let !particles = P.initialParticles bbox
     containers <- prepareContainers
 #ifdef __GHCJS__
     domEnv <- prepareDOMEnvironment
@@ -36,6 +40,7 @@ main = do
 #ifdef __GHCJS__
         bgroupGraphics domEnv,
 #endif
+        bench "update particles" $ nf (P.updateParticles particles) bbox,
         bgroupContainers containers
         ]
 

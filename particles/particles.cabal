@@ -21,6 +21,7 @@ library
                      , Particles.Types
                      , Particles.UI.GL
   build-depends:       base >=4.12
+                     , deepseq
                      , ghcjs-dom
                      , jsaddle
                      , lens

@@ -2,6 +2,7 @@
 
 module Particles.Types where
 
+import Control.DeepSeq (NFData, rnf, rwhnf)
 import Control.Lens (makeLenses)
 import qualified Data.Vector as V
 import Linear.V2 (V2)
@@ -12,6 +13,8 @@ data Particle = Particle
     { _position :: Position
     , _velocity :: V2 Float } deriving (Eq, Show)
 makeLenses ''Particle
+
+instance NFData Particle where rnf = rwhnf
 
 type Particles = [Particle]
 
