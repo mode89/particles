@@ -32,7 +32,11 @@ library
   hs-source-dirs:      lib
   default-language:    Haskell2010
   ghc-options:         -O2 -funbox-strict-fields
-  ghcjs-options:       -O2 -funbox-strict-fields
+  ghcjs-options:
+    -ddump-to-file
+    -ddump-simpl
+    -funbox-strict-fields
+    -O2
 
 executable particles
   main-is:             Main.hs
@@ -56,7 +60,11 @@ executable particles
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -O2 -funbox-strict-fields
-  ghcjs-options:       -O2 -funbox-strict-fields
+  ghcjs-options:
+    -ddump-to-file
+    -ddump-simpl
+    -funbox-strict-fields
+    -O2
 
 executable particles-tests
   if impl(ghcjs)
@@ -84,4 +92,8 @@ executable particles-benchmark
   hs-source-dirs:      benchmark
   default-language:    Haskell2010
   ghc-options:         -O2 -funbox-strict-fields
-  ghcjs-options:       -O2 -funbox-strict-fields
+  ghcjs-options:
+    -ddump-to-file
+    -ddump-simpl
+    -funbox-strict-fields
+    -O2
