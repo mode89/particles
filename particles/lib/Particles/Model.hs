@@ -5,7 +5,6 @@ module Particles.Model where
 import Control.Lens ((&), (^.), (.~))
 import Control.Monad (replicateM)
 import Control.Monad.ST (runST, ST)
-import Control.Monad.State (runState, state)
 import qualified Data.List as L
 import Data.STRef (newSTRef, readSTRef, STRef, writeSTRef)
 import qualified Data.Vector.Unboxed.Mutable as VUM
