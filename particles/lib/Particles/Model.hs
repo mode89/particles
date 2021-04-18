@@ -3,8 +3,12 @@
 module Particles.Model where
 
 import Control.Lens ((&), (^.), (.~))
+import Control.Monad (replicateM)
+import Control.Monad.ST (runST, ST)
 import Control.Monad.State (runState, state)
 import qualified Data.List as L
+import Data.STRef (newSTRef, readSTRef, STRef, writeSTRef)
+import qualified Data.Vector.Unboxed.Mutable as VUM
 import Linear.Metric (dot, norm)
 import Linear.V2 (V2(..), _x, _y)
 import Linear.Vector ((^*), scaled)
@@ -18,16 +22,23 @@ particleRadius = 10.0 :: Float
 tickInterval = 0.04 :: Double
 
 initialParticles :: BoundingBox -> Particles
-initialParticles bbox =
-    take 500 . L.unfoldr (Just . randomParticle bbox) $ mkStdGen 0
+initialParticles bbox = runST $ do
+    genRef <- newSTRef $ mkStdGen 0
+    replicateM 500 $ randomParticle bbox genRef
 
-randomParticle :: BoundingBox -> StdGen -> (Particle, StdGen)
-randomParticle BoundingBox{..} = runState $ do
-    x <- state $ randomR (_left, _right)
-    y <- state $ randomR (_bottom, _top)
-    vx <- state $ randomR (-maxInitialSpeed, maxInitialSpeed)
-    vy <- state $ randomR (-maxInitialSpeed, maxInitialSpeed)
+randomParticle :: BoundingBox -> STRef s StdGen -> ST s Particle
+randomParticle BoundingBox{..} genRef = do
+    x <- random (_left, _right)
+    y <- random (_bottom, _top)
+    vx <- random (-maxInitialSpeed, maxInitialSpeed)
+    vy <- random (-maxInitialSpeed, maxInitialSpeed)
     return $ Particle { _position = V2 x y, _velocity = V2 vx vy }
+    where
+        random range = do
+            gen <- readSTRef genRef
+            let (v, nextGen) = randomR range gen
+            writeSTRef genRef nextGen
+            return v
 
 updateParticles :: Particles -> BoundingBox -> Particles
 updateParticles particles bbox =
