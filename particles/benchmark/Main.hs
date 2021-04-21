@@ -33,6 +33,7 @@ main :: IO ()
 main = do
     let bbox = P.BoundingBox 0 1920 0 1080
     let !particles = P.initialParticles bbox
+    particles2 <- P.initialParticles2 bbox
     containers <- prepareContainers
 #ifdef __GHCJS__
     domEnv <- prepareDOMEnvironment
@@ -41,6 +42,8 @@ main = do
 #ifdef __GHCJS__
         bgroupGraphics domEnv,
 #endif
+        bench "update particles 2" $ nfIO $
+            P.updateParticles2 particles2 bbox,
         bench "update particles" $ nf (P.updateParticles particles) bbox,
         bgroupContainers containers
         ]
