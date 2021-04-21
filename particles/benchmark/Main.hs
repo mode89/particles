@@ -3,6 +3,7 @@
 
 module Main where
 
+import Control.Monad (foldM)
 import Criterion.Main
 import Criterion.Types
 import Debug.Trace
@@ -72,6 +73,10 @@ bgroupContainers (l, v, vu, vm, vum) = bgroup "containers" [
         , bench "mutable-unboxed-vector" $ nfIO $ VUM.imapM_
             (\i x -> VUM.write vum i (x + 1.0 :: Float)) vum
         ]
+    , bgroup "continuous-update" [
+          bench "vector" $ nfIO $ continuousUpdate vu
+        , bench "mutable-vector" $ nfIO $ continuousUpdateM vum
+        ]
     ]
 
 prepareContainers = do
@@ -81,6 +86,15 @@ prepareContainers = do
     vm <- VM.generate 20000 fromIntegral
     vum <- VUM.generate 20000 fromIntegral
     return (l, v, vu, vm, vum)
+
+continuousUpdate v = foldM f v [1..3000] where
+    f !a _ = return . VU.map (+1) $ a
+
+continuousUpdateM v = foldM f v [1..3000] where
+    f !a _ = do
+        VUM.imapM_ (g a) a
+        return a
+    g !v' !i _ = VUM.modify v' (+1) i
 
 #ifdef __GHCJS__
 bgroupGraphics (DOMEnvironment gl bufferData) = bgroup "dom" [
