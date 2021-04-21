@@ -1,10 +1,14 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Particles.Types where
 
 import Control.DeepSeq (NFData, rnf, rwhnf)
 import Control.Lens (makeLenses)
 import qualified Data.Vector as V
+import Data.Vector.Unboxed.Deriving (derivingUnbox)
+import qualified Data.Vector.Unboxed.Mutable as VUM
 import Linear.V2 (V2)
 
 type Position = V2 Double
@@ -16,7 +20,13 @@ makeLenses ''Particle
 
 instance NFData Particle where rnf = rwhnf
 
+derivingUnbox "Particle"
+    [t| Particle -> (V2 Double, V2 Double) |]
+    [| \ (Particle p v) -> (p, v) |]
+    [| \ (p, v) -> Particle p v |]
+
 type Particles = [Particle]
+type Particles2 = VUM.IOVector Particle
 
 data BoundingBox = BoundingBox
     { _left :: Double
