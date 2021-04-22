@@ -91,7 +91,10 @@ executable particles-benchmark
                      , vector
   hs-source-dirs:      benchmark
   default-language:    Haskell2010
-  ghc-options:         -O2 -funbox-strict-fields
+  ghc-options:
+    -funbox-strict-fields
+    -O2
+    -rtsopts
   ghcjs-options:
     -ddump-to-file
     -ddump-simpl
