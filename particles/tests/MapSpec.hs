@@ -1,3 +1,5 @@
+{-# LANGUAGE DisambiguateRecordFields #-}
+
 module MapSpec where
 
 import Control.Lens ((^.))

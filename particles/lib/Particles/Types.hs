@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -7,6 +8,7 @@ module Particles.Types where
 import Control.DeepSeq (NFData, rnf, rwhnf)
 import Control.Lens (makeLenses)
 import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as VM
 import Data.Vector.Unboxed.Deriving (derivingUnbox)
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import Linear.V2 (V2)
@@ -40,6 +42,19 @@ data ParticlesMap = ParticlesMap
     , boundingBox :: BoundingBox
     , width :: Int
     , bucketDim :: BucketDim } deriving (Eq, Show)
+
+data ParticlesMap2 = ParticlesMap2
+    { mapBuckets :: VM.IOVector MapBucket
+    , mapBoundingBox :: BoundingBox
+    , mapBucketDim :: BucketDim }
+
+data MapBucket = MapBucket
+    { bucketParticlesNum :: Int
+    , bucketParticlesIndices :: VUM.IOVector Int }
+
+data ParticlesState = ParticlesState
+    { particles :: Particles2
+    , particlesMap :: ParticlesMap2 }
 
 type BucketIndex = Int
 type BucketDim = Double

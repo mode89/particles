@@ -8,8 +8,6 @@ import qualified Data.Vector as V
 import Linear.V2 (V2(..), _x, _y)
 import Particles.Types
 
-mapBucketDim = 50 :: Double
-
 makeParticlesMap :: BoundingBox -> Particles -> ParticlesMap
 makeParticlesMap bbox particles =
     ParticlesMap { buckets = sortedParticles
@@ -27,6 +25,7 @@ makeParticlesMap bbox particles =
         numberOfBuckets = mapWidth * mapHeight
         mapWidth = ceiling $ (bbox ^. right - bbox ^. left) / mapBucketDim
         mapHeight = ceiling $ (bbox ^. top - bbox ^. bottom) / mapBucketDim
+        mapBucketDim = 50
 
 particlesInsideBucket :: ParticlesMap -> BucketIndex -> Particles
 particlesInsideBucket ParticlesMap{..} = V.unsafeIndex buckets
