@@ -69,8 +69,6 @@ executable particles
     -O2
 
 executable particles-tests
-  if impl(ghcjs)
-    buildable: False
   main-is:             Main.hs
   other-modules:       ModelSpec
                      , MapSpec
