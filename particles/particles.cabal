@@ -86,6 +86,7 @@ executable particles-benchmark
   main-is:             Main.hs
   build-depends:       base >= 4.12
                      , criterion
+                     , deepseq
                      , ghcjs-dom
                      , particles
                      , vector

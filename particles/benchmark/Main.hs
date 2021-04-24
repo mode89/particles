@@ -15,6 +15,7 @@ import qualified Particles.Model as P
 import qualified Particles.Types as P
 
 #ifdef __GHCJS__
+import Control.DeepSeq (NFData, rnf, rwhnf)
 import qualified GHCJS.DOM as DOM
 import qualified GHCJS.DOM.Document as Document
 import qualified GHCJS.DOM.HTMLCanvasElement as Canvas
@@ -27,6 +28,8 @@ data DOMEnvironment = DOMEnvironment {
     gl :: DOM.WebGLRenderingContext,
     bufferData :: [Double]
     }
+
+instance NFData DOMEnvironment where rnf = rwhnf
 #endif
 
 main :: IO ()
@@ -34,12 +37,9 @@ main = do
     let bbox = P.BoundingBox 0 1920 0 1080
     let !particles = P.initialParticles bbox
     containers <- prepareContainers
-#ifdef __GHCJS__
-    domEnv <- prepareDOMEnvironment
-#endif
     defaultMain [
 #ifdef __GHCJS__
-        bgroupGraphics domEnv,
+        env prepareDOMEnvironment bgroupDOM,
 #endif
         bench "update particles" $ nf (P.updateParticles particles) bbox,
         bgroupContainers containers
@@ -97,7 +97,7 @@ continuousUpdateM v = foldM f v [1..3000] where
     g !v' !i _ = VUM.modify v' (+1) i
 
 #ifdef __GHCJS__
-bgroupGraphics (DOMEnvironment gl bufferData) = bgroup "dom" [
+bgroupDOM ~(DOMEnvironment gl bufferData) = bgroup "dom" [
     bench "bufferSubDataFloat" $ nfIO $
         PGL.bufferSubDataFloat gl GL.ARRAY_BUFFER 0 bufferData
     ]
