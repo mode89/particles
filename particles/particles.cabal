@@ -18,6 +18,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Particles.Model
                      , Particles.Map
+                     , Particles.Map2
                      , Particles.Types
                      , Particles.UI.GL
   build-depends:       base >=4.12
@@ -72,6 +73,7 @@ executable particles-tests
   main-is:             Main.hs
   other-modules:       ModelSpec
                      , MapSpec
+                     , Map2
   build-depends:       base >=4.12
                      , containers
                      , hspec

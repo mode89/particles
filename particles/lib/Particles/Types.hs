@@ -7,10 +7,11 @@ module Particles.Types where
 
 import Control.DeepSeq (NFData, rnf, rwhnf)
 import Control.Lens (makeLenses)
+import Data.IORef (IORef)
 import qualified Data.Vector as V
-import qualified Data.Vector.Mutable as VM
-import Data.Vector.Unboxed.Deriving (derivingUnbox)
+import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+import Data.Vector.Unboxed.Deriving (derivingUnbox)
 import Linear.V2 (V2)
 
 type Position = V2 Double
@@ -28,7 +29,7 @@ derivingUnbox "Particle"
     [| \ (p, v) -> Particle p v |]
 
 type Particles = [Particle]
-type Particles2 = VUM.IOVector Particle
+type Particles2 = VU.Vector Particle
 
 data BoundingBox = BoundingBox
     { _left :: Double
@@ -44,12 +45,14 @@ data ParticlesMap = ParticlesMap
     , bucketDim :: BucketDim } deriving (Eq, Show)
 
 data ParticlesMap2 = ParticlesMap2
-    { mapBuckets :: VM.IOVector MapBucket
+    { mapBuckets :: MapBuckets
     , mapBoundingBox :: BoundingBox
     , mapBucketDim :: BucketDim }
 
+data MapBuckets = MapBuckets (V.Vector MapBucket)
+
 data MapBucket = MapBucket
-    { bucketParticlesNum :: Int
+    { bucketParticlesNum :: IORef Int
     , bucketParticlesIndices :: VUM.IOVector Int }
 
 data ParticlesState = ParticlesState
