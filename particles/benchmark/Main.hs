@@ -45,11 +45,11 @@ main = do
         bgroupContainers containers
         ]
 
-bgroupContainers :: ( [Float]
-                    , V.Vector Float
-                    , VU.Vector Float
-                    , VM.IOVector Float
-                    , VUM.IOVector Float )
+bgroupContainers :: ( [Double]
+                    , V.Vector Double
+                    , VU.Vector Double
+                    , VM.IOVector Double
+                    , VUM.IOVector Double )
                  -> Benchmark
 bgroupContainers (l, v, vu, vm, vum) = bgroup "containers" [
       bgroup "sum" [
@@ -69,32 +69,38 @@ bgroupContainers (l, v, vu, vm, vum) = bgroup "containers" [
         ]
     , bgroup "update-inplace" [
           bench "mutable-vector" $ nfIO $ VM.imapM_
-            (\i x -> VM.write vm i (x + 1.0 :: Float)) vm
+            (\i x -> VM.write vm i (x + 1.0 :: Double)) vm
         , bench "mutable-unboxed-vector" $ nfIO $ VUM.imapM_
-            (\i x -> VUM.write vum i (x + 1.0 :: Float)) vum
+            (\i x -> VUM.write vum i (x + 1.0 :: Double)) vum
         ]
     , bgroup "continuous-update" [
-          bench "vector" $ nfIO $ continuousUpdate vu
-        , bench "mutable-vector" $ nfIO $ continuousUpdateM vum
+          bench "immutable" $ nfIO $ foldM (\v _ -> do
+                return $ VU.map nextX v
+            ) vu [1..1000]
+        , bench "mutable" $ nfIO $ foldM (\v _ -> do
+                VUM.imapM_ (\i _ -> do
+                        VUM.modify v nextX i
+                    ) v
+                return v
+            ) vum [1..1000]
+        , bench "thaw-freeze" $ nfIO $
+            foldM (\v _ -> do
+                vm <- VU.thaw v
+                VUM.imapM_ (\i x -> VUM.write vm i (nextX x)) vm
+                VU.freeze vm
+            ) vu [1..1000]
         ]
     ]
 
+nextX !x = x + sqrt x + sqrt (x + 1) + sqrt (x + 2) + sqrt (x + 3)
+
 prepareContainers = do
-    let l = [0 .. 20000 :: Float]
-    let v = V.fromList [0 .. 20000 :: Float]
-    let vu = VU.fromList [0 .. 20000 :: Float]
+    let l = [0 .. 20000 :: Double]
+    let v = V.fromList [0 .. 20000 :: Double]
+    let vu = VU.fromList [0 .. 20000 :: Double]
     vm <- VM.generate 20000 fromIntegral
     vum <- VUM.generate 20000 fromIntegral
     return (l, v, vu, vm, vum)
-
-continuousUpdate v = foldM f v [1..3000] where
-    f !a _ = return . VU.map (+1) $ a
-
-continuousUpdateM v = foldM f v [1..3000] where
-    f !a _ = do
-        VUM.imapM_ (g a) a
-        return a
-    g !v' !i _ = VUM.modify v' (+1) i
 
 #ifdef __GHCJS__
 bgroupDOM ~(DOMEnvironment gl bufferData) = bgroup "dom" [
