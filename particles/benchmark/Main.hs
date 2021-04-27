@@ -41,7 +41,9 @@ main = do
 #ifdef __GHCJS__
         env prepareDOMEnvironment bgroupDOM,
 #endif
-        bench "update particles" $ nf (P.updateParticles particles) bbox,
+        bench "update-particles" $ nfIO $ foldM (\ps _ -> do
+                return $ P.updateParticles ps bbox
+            ) particles [1..100],
         bgroupContainers containers
         ]
 
