@@ -4,6 +4,7 @@ module Map2 where
 
 import Control.Monad (forM_)
 import Data.IORef (readIORef)
+import qualified Data.Set as Set
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
@@ -42,6 +43,13 @@ map2Spec = describe "Map2" $ do
         pmap1 <- update bbox particles pmap0
         buckets <- freezeBuckets $ mapBuckets pmap1
         buckets `shouldBe` [[1], [], [], [0]]
+    it "neighbour buckets" $ do
+        (Set.fromList $ VU.toList $ neighbourBuckets 3 3 4) `shouldBe`
+            (Set.fromList [0, 1, 2, 3, 4, 5, 6, 7, 8])
+        (Set.fromList $ VU.toList $ neighbourBuckets 3 3 3) `shouldBe`
+            (Set.fromList [0, 1, 3, 4, 6, 7])
+        (Set.fromList $ VU.toList $ neighbourBuckets 3 3 8) `shouldBe`
+            (Set.fromList [4, 5, 7, 8])
 
 freezeBuckets :: MapBuckets -> IO [[Int]]
 freezeBuckets (MapBuckets buckets) =

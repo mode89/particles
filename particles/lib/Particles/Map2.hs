@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -68,5 +69,24 @@ bucketIndex BoundingBox{..} bucketDim pos =
         row = floor $ (pos ^. _y - _bottom) / bucketDim
         columns = ceiling $ (_right - _left) / bucketDim
 
+neighbourBuckets :: Int -> Int -> BucketIndex -> VU.Vector BucketIndex
+neighbourBuckets !mapWidth !mapHeight !index
+    = VU.map (uncurry $ indexFromRowAndColumn mapWidth)
+    . VU.filter
+        (\ (!r, !c) ->
+               (r >= 0)
+            && (r < mapHeight)
+            && (c >= 0)
+            && (c < mapWidth) )
+    . VU.map (\ (!r, !c) -> (row + r - 1, col + c - 1) )
+    $ VU.generate 9 (\ !i -> rowAndColumnFromIndex i 3 )
+    where
+        !(row, col) = rowAndColumnFromIndex index mapWidth
+
+{-# INLINE indexFromRowAndColumn #-}
 indexFromRowAndColumn :: Int -> Int -> Int -> BucketIndex
-indexFromRowAndColumn width row column = column + row * width
+indexFromRowAndColumn !width !row !column = column + row * width
+
+{-# INLINE rowAndColumnFromIndex #-}
+rowAndColumnFromIndex :: BucketIndex -> Int -> (Int, Int)
+rowAndColumnFromIndex !index !width = index `divMod` width
