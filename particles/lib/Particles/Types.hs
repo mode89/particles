@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -32,10 +33,10 @@ type Particles = [Particle]
 type Particles2 = VU.Vector Particle
 
 data BoundingBox = BoundingBox
-    { _left :: Double
-    , _right :: Double
-    , _bottom :: Double
-    , _top :: Double } deriving (Eq, Show)
+    { _left :: !Double
+    , _right :: !Double
+    , _bottom :: !Double
+    , _top :: !Double } deriving (Eq, Show)
 makeLenses ''BoundingBox
 
 data ParticlesMap = ParticlesMap
@@ -47,7 +48,7 @@ data ParticlesMap = ParticlesMap
 data ParticlesMap2 = ParticlesMap2
     { mapBuckets :: MapBuckets
     , mapBoundingBox :: BoundingBox
-    , mapBucketDim :: BucketDim }
+    , mapBucketDim :: !BucketDim }
 
 data MapBuckets = MapBuckets (V.Vector MapBucket)
 
