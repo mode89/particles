@@ -1,8 +1,10 @@
 packages:
     particles/particles.cabal
 
-compiler:
-    ghcjs
-
-store-dir:
-    .cabal-store
+package particles
+    ghc-options:
+        -funbox-strict-fields
+        -O2
+    ghcjs-options:
+        -funbox-strict-fields
+        -O2

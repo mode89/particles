@@ -34,12 +34,6 @@ library
                      , vector-th-unbox
   hs-source-dirs:      lib
   default-language:    Haskell2010
-  ghc-options:         -O2 -funbox-strict-fields
-  ghcjs-options:
-    -ddump-to-file
-    -ddump-simpl
-    -funbox-strict-fields
-    -O2
 
 executable particles
   main-is:             Main.hs
@@ -62,12 +56,6 @@ executable particles
     build-depends:     haskell-gi-base ==0.23.0
   hs-source-dirs:      src
   default-language:    Haskell2010
-  ghc-options:         -O2 -funbox-strict-fields
-  ghcjs-options:
-    -ddump-to-file
-    -ddump-simpl
-    -funbox-strict-fields
-    -O2
 
 executable particles-tests
   main-is:             Main.hs
@@ -94,12 +82,3 @@ executable particles-benchmark
                      , vector
   hs-source-dirs:      benchmark
   default-language:    Haskell2010
-  ghc-options:
-    -funbox-strict-fields
-    -O2
-    -rtsopts
-  ghcjs-options:
-    -ddump-to-file
-    -ddump-simpl
-    -funbox-strict-fields
-    -O2
