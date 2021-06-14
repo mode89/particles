@@ -5,6 +5,8 @@ package particles
     ghc-options:
         -funbox-strict-fields
         -O2
+        -Wall
     ghcjs-options:
         -funbox-strict-fields
         -O2
+        -Wall
