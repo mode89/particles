@@ -52,8 +52,6 @@ executable particles
                      , witherable
   if impl(ghcjs)
     build-depends:     ghcjs-base
-  if impl(ghc)
-    build-depends:     haskell-gi-base ==0.23.0
   hs-source-dirs:      src
   default-language:    Haskell2010
 
