@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE Strict #-}
 
 module Particles.Map2 where
 
@@ -28,19 +29,19 @@ make bbox ps = runST $ do
         , mapBoundingBox = bbox
         , mapBucketDim = bucketDim }
     where
-        !numberOfBuckets = mapWidth * mapHeight
-        !mapWidth = ceiling $ (bbox ^. right - bbox ^. left) / bucketDim
-        !mapHeight = ceiling $ (bbox ^. top - bbox ^. bottom) / bucketDim
-        !bucketDim = 50
+        numberOfBuckets = mapWidth * mapHeight
+        mapWidth = ceiling $ (bbox ^. right - bbox ^. left) / bucketDim
+        mapHeight = ceiling $ (bbox ^. top - bbox ^. bottom) / bucketDim
+        bucketDim = 50
         fillBuckets sizes storage =
-            VU.iforM_ ps $ \particleIndex particle -> do
-                let !bucketIndex_ = bucketIndex
+            VU.iforM_ ps $ \ particleIndex particle -> do
+                let bucketIndex_ = bucketIndex
                         bbox bucketDim (particle ^. position)
-                let !beginningOfBucket = maxBucketSize * bucketIndex_
+                let beginningOfBucket = maxBucketSize * bucketIndex_
                 let bucket = VUM.slice
                         beginningOfBucket maxBucketSize storage
                 bucketSize <- VUM.read sizes bucketIndex_
-                let !particleOffset = bucketSize
+                let particleOffset = bucketSize
                 -- Put particle into bucket
                 VUM.write bucket particleOffset particleIndex
                 -- Increase size of the bucket
@@ -48,16 +49,16 @@ make bbox ps = runST $ do
 
 {-# INLINE bucketIndex #-}
 bucketIndex :: BoundingBox -> BucketDim -> Position -> BucketIndex
-bucketIndex BoundingBox{..} !bucketDim pos =
+bucketIndex BoundingBox{..} bucketDim pos =
     indexFromRowAndColumn columns row column
     where
-        !column = floor $ (pos ^. _x - _left) / bucketDim
-        !row = floor $ (pos ^. _y - _bottom) / bucketDim
-        !columns = ceiling $ (_right - _left) / bucketDim
+        column = floor $ (pos ^. _x - _left) / bucketDim
+        row = floor $ (pos ^. _y - _bottom) / bucketDim
+        columns = ceiling $ (_right - _left) / bucketDim
 
 {-# INLINE indexFromRowAndColumn #-}
 indexFromRowAndColumn :: Int -> Int -> Int -> BucketIndex
-indexFromRowAndColumn !width !row !column = column + row * width
+indexFromRowAndColumn width row column = column + row * width
 
 {-# INLINE neighbourParticles #-}
 neighbourParticles :: ParticlesMap2
