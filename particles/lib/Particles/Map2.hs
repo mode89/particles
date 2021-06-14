@@ -58,3 +58,43 @@ bucketIndex BoundingBox{..} !bucketDim pos =
 {-# INLINE indexFromRowAndColumn #-}
 indexFromRowAndColumn :: Int -> Int -> Int -> BucketIndex
 indexFromRowAndColumn !width !row !column = column + row * width
+
+{-# INLINE neighbourParticles #-}
+neighbourParticles :: ParticlesMap2
+                   -> BucketIndex
+                   -> VU.Vector ParticleIndex
+neighbourParticles ParticlesMap2{..} pBucketIndex
+    = VU.concatMap particlesInsideBucket
+    $ neighbourBuckets mapWidth mapHeight bRow bCol
+    where
+        particlesInsideBucket bIndex =
+            let beginningOfBucket = bIndex * maxBucketSize
+                bucketSize = mapBucketsSizes VU.! bIndex
+            in VU.slice beginningOfBucket bucketSize mapBucketsStorage
+        mapWidth = ceiling $ (bbox ^. right - bbox ^. left) / mapBucketDim
+        mapHeight = ceiling $ (bbox ^. top - bbox ^. bottom) / mapBucketDim
+        bbox = mapBoundingBox
+        (bRow, bCol) = rowAndColumnFromIndex pBucketIndex mapWidth
+
+{-# INLINE neighbourBuckets #-}
+neighbourBuckets :: Int -> Int -> Int -> Int -> VU.Vector BucketIndex
+neighbourBuckets mapWidth mapHeight bRow bCol
+    = VU.map bucketIndex_
+    . VU.filter insideBoundingBox
+    . VU.map absoluteBucketCoord
+    $ neighbourOffsets
+    where
+        bucketIndex_ = uncurry $ indexFromRowAndColumn mapWidth
+        insideBoundingBox (r, c)
+             = (r >= 0)
+            && (r < mapHeight)
+            && (c >= 0)
+            && (c < mapWidth)
+        absoluteBucketCoord (r, c) =
+            ( bRow + r - 1
+            , bCol + c - 1 )
+        neighbourOffsets = VU.generate 9 (`rowAndColumnFromIndex` 3)
+
+{-# INLINE rowAndColumnFromIndex #-}
+rowAndColumnFromIndex :: BucketIndex -> Int -> (Int, Int)
+rowAndColumnFromIndex index width = index `divMod` width
