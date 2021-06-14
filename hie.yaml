@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "./particles/lib"
+      component: "particles:lib:particles"
+    - path: "./particles/src"
+      component: "particles:exe:particles"
+    - path: "./particles/tests"
+      component: "particles:exe:particles-tests"
+    - path: "./particles/benchmark"
+      component: "particles:exe:particles-benchmark"
