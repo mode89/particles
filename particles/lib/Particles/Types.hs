@@ -8,10 +8,8 @@ module Particles.Types where
 
 import Control.DeepSeq (NFData, rnf, rwhnf)
 import Control.Lens (makeLenses)
-import Data.IORef (IORef)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
-import qualified Data.Vector.Unboxed.Mutable as VUM
 import Data.Vector.Unboxed.Deriving (derivingUnbox)
 import Linear.V2 (V2)
 
@@ -46,19 +44,17 @@ data ParticlesMap = ParticlesMap
     , bucketDim :: BucketDim } deriving (Eq, Show)
 
 data ParticlesMap2 = ParticlesMap2
-    { mapBuckets :: MapBuckets
+    { mapBucketsSizes :: MapBucketsSizes
+    , mapBucketsStorage :: MapBucketsStorage
     , mapBoundingBox :: BoundingBox
     , mapBucketDim :: !BucketDim }
-
-data MapBuckets = MapBuckets (V.Vector MapBucket)
-
-data MapBucket = MapBucket
-    { bucketParticlesNum :: IORef Int
-    , bucketParticlesIndices :: VUM.IOVector Int }
 
 data ParticlesState = ParticlesState
     { particles :: Particles2
     , particlesMap :: ParticlesMap2 }
 
+type MapBucketsSizes = VU.Vector Int
+type MapBucketsStorage = VU.Vector ParticleIndex
+type ParticleIndex = Int
 type BucketIndex = Int
 type BucketDim = Double
