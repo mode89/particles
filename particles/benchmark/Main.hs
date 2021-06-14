@@ -92,6 +92,10 @@ bgroupContainers (l, v, vu, vm, vum) = bgroup "containers" [
                 VU.freeze vm
             ) vu [1..1000]
         ]
+    , bgroup "fusion" [
+          bench "list" $ whnf (sum . map (\ x -> x + 1)) l
+        , bench "vector" $ whnf (VU.sum . VU.map (\ x -> x + 1)) vu
+        ]
     ]
 
 nextX !x = x + sqrt x + sqrt (x + 1) + sqrt (x + 2) + sqrt (x + 3)
