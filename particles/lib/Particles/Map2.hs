@@ -5,7 +5,7 @@
 module Particles.Map2 where
 
 import Control.Lens ((^.))
-import Control.Monad.ST (runST, ST)
+import Control.Monad.ST (runST)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
@@ -20,7 +20,7 @@ make :: BoundingBox -> Particles2 -> ParticlesMap2
 make bbox ps = runST $ do
     bucketsSizes <- VUM.new numberOfBuckets
     bucketsStorage <- VUM.unsafeNew $ numberOfBuckets * maxBucketSize
-    fillBuckets bbox bucketDim bucketsSizes bucketsStorage ps
+    fillBuckets bucketsSizes bucketsStorage
     frozenSizes <- VU.unsafeFreeze bucketsSizes
     frozenStorage <- VU.unsafeFreeze bucketsStorage
     return $ ParticlesMap2
@@ -33,24 +33,19 @@ make bbox ps = runST $ do
         !mapWidth = ceiling $ (bbox ^. right - bbox ^. left) / bucketDim
         !mapHeight = ceiling $ (bbox ^. top - bbox ^. bottom) / bucketDim
         !bucketDim = 50
-
-fillBuckets :: BoundingBox
-            -> BucketDim
-            -> VUM.STVector s Int
-            -> VUM.STVector s ParticleIndex
-            -> Particles2
-            -> ST s ()
-fillBuckets bbox !dim sizes storage ps = do
-    VU.iforM_ ps $ \particleIndex particle -> do
-        let !bucketIndex_ = bucketIndex bbox dim (particle ^. position)
-        let !beginningOfBucket = maxBucketSize * bucketIndex_
-        let bucket = VUM.slice beginningOfBucket maxBucketSize storage
-        bucketSize <- VUM.read sizes bucketIndex_
-        let !particleOffset = bucketSize
-        -- Put particle into bucket
-        VUM.write bucket particleOffset particleIndex
-        -- Increase size of the bucket
-        VUM.write sizes bucketIndex_ (bucketSize + 1)
+        fillBuckets sizes storage =
+            VU.iforM_ ps $ \particleIndex particle -> do
+                let !bucketIndex_ = bucketIndex
+                        bbox bucketDim (particle ^. position)
+                let !beginningOfBucket = maxBucketSize * bucketIndex_
+                let bucket = VUM.slice
+                        beginningOfBucket maxBucketSize storage
+                bucketSize <- VUM.read sizes bucketIndex_
+                let !particleOffset = bucketSize
+                -- Put particle into bucket
+                VUM.write bucket particleOffset particleIndex
+                -- Increase size of the bucket
+                VUM.write sizes bucketIndex_ (bucketSize + 1)
 
 {-# INLINE bucketIndex #-}
 bucketIndex :: BoundingBox -> BucketDim -> Position -> BucketIndex
