@@ -16,9 +16,10 @@ extra-source-files:  CHANGELOG.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Particles.Model
-                     , Particles.Map
+  exposed-modules:     Particles.Map
                      , Particles.Map2
+                     , Particles.Model
+                     , Particles.Model2
                      , Particles.Types
                      , Particles.UI.GL
   build-depends:       base >=4.12
@@ -69,6 +70,7 @@ executable particles2
                      , reflex
                      , reflex-dom
                      , text
+                     , vector
                      , witherable
   if impl(ghcjs)
     build-depends:     ghcjs-base

@@ -1,24 +1,35 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE Strict #-}
 
 module Particles.Model where
 
 import Control.Lens ((&), (^.), (.~))
 import Control.Monad (replicateM)
 import Control.Monad.ST (runST, ST)
-import qualified Data.List as L
 import Data.STRef (newSTRef, readSTRef, STRef, writeSTRef)
-import qualified Data.Vector.Unboxed.Mutable as VUM
 import Linear.Metric (dot, norm)
 import Linear.V2 (V2(..), _x, _y)
-import Linear.Vector ((^*), scaled)
+import Linear.Vector ((^*))
 import Particles.Map
 import Particles.Types
 import System.Random (mkStdGen, randomR, StdGen)
 
-maxInitialSpeed = 400 :: Double
-maxParticlesNum = 10000 :: Int
-particleRadius = 10.0 :: Double
-tickInterval = 0.04 :: Double
+{-# INLINE maxInitialSpeed #-}
+maxInitialSpeed :: Double
+maxInitialSpeed = 400
+
+{-# INLINE maxParticlesNum #-}
+maxParticlesNum :: Int
+maxParticlesNum = 10000
+
+{-# INLINE particleRadius #-}
+particleRadius :: Double
+particleRadius = 10.0
+
+{-# INLINE tickInterval #-}
+tickInterval ::  Double
+tickInterval = 0.04
 
 initialParticles :: BoundingBox -> Particles
 initialParticles bbox = runST $ do
@@ -53,6 +64,7 @@ updateParticle bbox particlesMap particle =
     handleCollisions particlesMap $
         particle
 
+{-# INLINE integrateVelocity #-}
 integrateVelocity :: Particle -> Particle
 integrateVelocity particle = particle & position .~
     ( particle ^. position +
@@ -63,6 +75,7 @@ handleCollisions particlesMap particle =
     foldr handleCollision particle $
         neighbourParticles particlesMap particle
 
+{-# INLINE handleCollision #-}
 handleCollision :: Particle -> Particle -> Particle
 handleCollision anotherParticle particleOfInterest =
     if collision
@@ -82,6 +95,7 @@ handleCollision anotherParticle particleOfInterest =
         v2 = anotherParticle ^. velocity
         p2 = anotherParticle ^. position
 
+{-# INLINE bounceOfWalls #-}
 bounceOfWalls :: BoundingBox -> Particle -> Particle
 bounceOfWalls bbox = bounceLeft
                    . bounceRight
@@ -105,6 +119,7 @@ bounceOfWalls bbox = bounceLeft
             then p & (velocity . _y) .~ (- (abs $ p ^. velocity ^. _y))
             else p
 
+{-# INLINE clampToBoundingBox #-}
 clampToBoundingBox :: BoundingBox -> Particle -> Particle
 clampToBoundingBox bbox = clampLeft
                         . clampRight

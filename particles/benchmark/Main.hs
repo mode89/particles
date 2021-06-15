@@ -12,6 +12,7 @@ import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import qualified Particles.Model as P
+import qualified Particles.Model2 as PM2
 import qualified Particles.Types as P
 
 #ifdef __GHCJS__
@@ -36,6 +37,7 @@ main :: IO ()
 main = do
     let bbox = P.BoundingBox 0 1920 0 1080
     let !particles = P.initialParticles bbox
+    let !particles2 = PM2.initialParticles bbox
     containers <- prepareContainers
     defaultMain [
 #ifdef __GHCJS__
@@ -44,6 +46,9 @@ main = do
         bench "update-particles" $ nfIO $ foldM (\ps _ -> do
                 return $ P.updateParticles ps bbox
             ) particles [1..100],
+        bench "updateParticles2" $ nfIO $ foldM (\ps _ -> do
+                return $ PM2.updateParticles bbox ps
+            ) particles2 [1..100],
         bgroupContainers containers
         ]
 

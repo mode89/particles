@@ -16,6 +16,7 @@ import Particles.Types
 maxBucketSize :: Int
 maxBucketSize = 100
 
+{-# INLINE make #-}
 make :: BoundingBox -> Particles2 -> ParticlesMap2
 make bbox ps = runST $ do
     bucketsSizes <- VUM.new numberOfBuckets

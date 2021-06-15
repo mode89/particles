@@ -12,6 +12,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Foldable as Foldable
 import qualified Data.List as L
 import Data.Text (Text)
+import qualified Data.Vector.Unboxed as VU
 import Data.Witherable (catMaybes)
 import GHCJS.DOM.ANGLEInstancedArrays
     ( drawArraysInstancedANGLE
@@ -40,6 +41,7 @@ import Linear.V3 (V3(..))
 import Linear.V4 (V4(..))
 import Linear.Vector (scaled)
 import qualified Particles.Model as Model
+import qualified Particles.Model2 as Model2
 import Particles.Types
 import Particles.UI.GL
 import qualified Reflex as RX
@@ -88,11 +90,11 @@ main = mainWidgetWithCss style $ do
 
     return ()
 
-updateParticles :: Maybe Particles -> BoundingBox -> Maybe Particles
+updateParticles :: Maybe Particles2 -> BoundingBox -> Maybe Particles2
 updateParticles = fmap Just
                 . maybe
-                    Model.initialParticles
-                    Model.updateParticles
+                    Model2.initialParticles
+                    (flip Model2.updateParticles)
 
 getGLContext :: HTMLCanvasElement -> JSM GLContext
 getGLContext canvas = do
@@ -175,7 +177,7 @@ fragmentShaderSource = L.intercalate "\n"
 
 render :: GLContext
        -> GLObjects
-       -> (Particles, ProjectionMatrix)
+       -> (Particles2, ProjectionMatrix)
        -> JSM ()
 render GLContext{..} GLObjects{..} (particles, projectionMatrix) = do
     GL.uniformMatrix4fv gl (Just projectionUniform) False $
@@ -187,9 +189,9 @@ render GLContext{..} GLObjects{..} (particles, projectionMatrix) = do
     GL.bindBuffer gl GL.ARRAY_BUFFER Nothing
 
     drawArraysInstancedANGLE angleInstancedArrays
-        GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) $ length particles
+        GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) $ VU.length particles
     where
-        translations = [n | p <- particles, n <- [ x p, y p ]]
+        translations = [n | p <- VU.toList particles, n <- [ x p, y p ]]
         x p = p ^. (position . _x)
         y p = p ^. (position . _y)
 
