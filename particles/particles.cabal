@@ -52,7 +52,27 @@ executable particles
                      , witherable
   if impl(ghcjs)
     build-depends:     ghcjs-base
-  hs-source-dirs:      src
+  hs-source-dirs:      src/v1
+  default-language:    Haskell2010
+
+executable particles2
+  main-is:             Main.hs
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.12
+                     , bytestring
+                     , ghcjs-dom
+                     , jsaddle
+                     , lens
+                     , linear
+                     , particles
+                     , reflex
+                     , reflex-dom
+                     , text
+                     , witherable
+  if impl(ghcjs)
+    build-depends:     ghcjs-base
+  hs-source-dirs:      src/v2
   default-language:    Haskell2010
 
 executable particles-tests

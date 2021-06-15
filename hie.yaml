@@ -2,8 +2,10 @@ cradle:
   cabal:
     - path: "./particles/lib"
       component: "particles:lib:particles"
-    - path: "./particles/src"
+    - path: "./particles/src/v1"
       component: "particles:exe:particles"
+    - path: "./particles/src/v2"
+      component: "particles:exe:particles2"
     - path: "./particles/tests"
       component: "particles:exe:particles-tests"
     - path: "./particles/benchmark"
