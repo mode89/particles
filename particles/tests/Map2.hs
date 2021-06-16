@@ -16,8 +16,8 @@ map2Spec = describe "Map2" $ do
         let particles = VU.empty
         let pmap@ParticlesMap2{..} = make bbox particles
         let buckets = listFromMap pmap
-        mapBoundingBox `shouldBe` bbox
-        mapBucketDim `shouldBe` 50
+        mapWidth `shouldBe` 2
+        mapHeight `shouldBe` 2
         buckets `shouldBe` [[], [], [], []]
     it "make with one particle" $ do
         let bbox = BoundingBox 0 50 0 50

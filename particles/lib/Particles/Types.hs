@@ -46,8 +46,8 @@ data ParticlesMap = ParticlesMap
 data ParticlesMap2 = ParticlesMap2
     { mapBucketsSizes :: MapBucketsSizes
     , mapBucketsStorage :: MapBucketsStorage
-    , mapBoundingBox :: BoundingBox
-    , mapBucketDim :: !BucketDim }
+    , mapWidth :: !Int
+    , mapHeight :: !Int }
 
 data ParticlesState = ParticlesState
     { particles :: Particles2

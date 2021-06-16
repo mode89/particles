@@ -24,11 +24,11 @@ maxParticlesNum :: Int
 maxParticlesNum = 10000
 
 {-# INLINE particleRadius #-}
-particleRadius :: Double
+particleRadius :: Fractional a => a
 particleRadius = 10.0
 
 {-# INLINE tickInterval #-}
-tickInterval ::  Double
+tickInterval :: Fractional a => a
 tickInterval = 0.04
 
 initialParticles :: BoundingBox -> Particles
@@ -67,8 +67,7 @@ updateParticle bbox particlesMap particle =
 {-# INLINE integrateVelocity #-}
 integrateVelocity :: Particle -> Particle
 integrateVelocity particle = particle & position .~
-    ( particle ^. position +
-      particle ^. velocity * (realToFrac tickInterval) )
+    ( particle ^. position + particle ^. velocity * tickInterval )
 
 handleCollisions :: ParticlesMap -> Particle -> Particle
 handleCollisions particlesMap particle =

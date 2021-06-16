@@ -16,6 +16,10 @@ import Particles.Types
 maxBucketSize :: Int
 maxBucketSize = 100
 
+{-# INLINE mapBucketDim #-}
+mapBucketDim :: Fractional a => a
+mapBucketDim = 50.0
+
 {-# INLINE make #-}
 make :: BoundingBox -> Particles2 -> ParticlesMap2
 make bbox ps = runST $ do
@@ -27,17 +31,15 @@ make bbox ps = runST $ do
     return $ ParticlesMap2
         { mapBucketsSizes = frozenSizes
         , mapBucketsStorage = frozenStorage
-        , mapBoundingBox = bbox
-        , mapBucketDim = bucketDim }
+        , mapWidth = width
+        , mapHeight = height }
     where
-        numberOfBuckets = mapWidth * mapHeight
-        mapWidth = ceiling $ (bbox ^. right - bbox ^. left) / bucketDim
-        mapHeight = ceiling $ (bbox ^. top - bbox ^. bottom) / bucketDim
-        bucketDim = 50
+        numberOfBuckets = width * height
+        width = ceiling $ (bbox ^. right - bbox ^. left) / mapBucketDim
+        height = ceiling $ (bbox ^. top - bbox ^. bottom) / mapBucketDim
         fillBuckets sizes storage =
             VU.iforM_ ps $ \ particleIndex particle -> do
-                let bucketIndex_ = bucketIndex
-                        bbox bucketDim (particle ^. position)
+                let bucketIndex_ = bucketIndex bbox (particle ^. position)
                 let beginningOfBucket = maxBucketSize * bucketIndex_
                 let bucket = VUM.slice
                         beginningOfBucket maxBucketSize storage
@@ -49,13 +51,13 @@ make bbox ps = runST $ do
                 VUM.write sizes bucketIndex_ (bucketSize + 1)
 
 {-# INLINE bucketIndex #-}
-bucketIndex :: BoundingBox -> BucketDim -> Position -> BucketIndex
-bucketIndex BoundingBox{..} bucketDim pos =
+bucketIndex :: BoundingBox -> Position -> BucketIndex
+bucketIndex BoundingBox{..} pos =
     indexFromRowAndColumn columns row column
     where
-        column = floor $ (pos ^. _x - _left) / bucketDim
-        row = floor $ (pos ^. _y - _bottom) / bucketDim
-        columns = ceiling $ (_right - _left) / bucketDim
+        column = floor $ (pos ^. _x - _left) / mapBucketDim
+        row = floor $ (pos ^. _y - _bottom) / mapBucketDim
+        columns = ceiling $ (_right - _left) / mapBucketDim
 
 {-# INLINE indexFromRowAndColumn #-}
 indexFromRowAndColumn :: Int -> Int -> Int -> BucketIndex
@@ -73,9 +75,6 @@ neighbourParticles ParticlesMap2{..} pBucketIndex
             let beginningOfBucket = bIndex * maxBucketSize
                 bucketSize = mapBucketsSizes VU.! bIndex
             in VU.slice beginningOfBucket bucketSize mapBucketsStorage
-        mapWidth = ceiling $ (bbox ^. right - bbox ^. left) / mapBucketDim
-        mapHeight = ceiling $ (bbox ^. top - bbox ^. bottom) / mapBucketDim
-        bbox = mapBoundingBox
         (bRow, bCol) = rowAndColumnFromIndex pBucketIndex mapWidth
 
 {-# INLINE neighbourBuckets #-}
