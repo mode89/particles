@@ -35,7 +35,7 @@ instance NFData DOMEnvironment where rnf = rwhnf
 
 main :: IO ()
 main = do
-    let bbox = P.BoundingBox 0 1920 0 1080
+    let !bbox = P.BoundingBox 0 1920 0 1080
     let !particles = P.initialParticles bbox
     let !particles2 = PM2.initialParticles bbox
     containers <- prepareContainers
@@ -43,10 +43,10 @@ main = do
 #ifdef __GHCJS__
         env prepareDOMEnvironment bgroupDOM,
 #endif
-        bench "update-particles" $ nfIO $ foldM (\ps _ -> do
+        bench "update-particles" $ nfIO $ foldM (\ !ps _ -> do
                 return $ P.updateParticles ps bbox
             ) particles [1..100],
-        bench "updateParticles2" $ nfIO $ foldM (\ps _ -> do
+        bench "updateParticles2" $ nfIO $ foldM (\ !ps _ -> do
                 return $ PM2.updateParticles bbox ps
             ) particles2 [1..100],
         bgroupContainers containers
