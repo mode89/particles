@@ -72,7 +72,7 @@ main = mainWidgetWithCss style $ do
     glContext <- liftJSM $ getGLContext canvasRaw
     glObjects <- liftJSM $ initGL glContext
 
-    eTick <- RX.tickLossyFromPostBuildTime $ realToFrac Model.tickInterval
+    eTick <- RX.tickLossyFromPostBuildTime Model.tickInterval
 
     (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize canvasRaw eTick
 
@@ -133,7 +133,7 @@ initGL GLContext{..} = do
     modelUniform <- GL.getUniformLocation
         gl (Just program) ("u_model" :: Text)
     GL.uniformMatrix4fv gl (Just modelUniform) False $
-        listFromMatrix $ modelMatrix $ realToFrac Model.particleRadius
+        listFromMatrix $ modelMatrix Model.particleRadius
 
     projectionUniform <- GL.getUniformLocation
         gl (Just program) ("u_projection" :: Text)
