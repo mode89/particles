@@ -14,16 +14,20 @@ import qualified Data.List as L
 import Data.Text (Text)
 import qualified Data.Vector.Unboxed as VU
 import Data.Witherable (catMaybes)
+import qualified GHCJS.DOM as DOM
 import GHCJS.DOM.ANGLEInstancedArrays
     ( drawArraysInstancedANGLE
     , vertexAttribDivisorANGLE )
 import qualified GHCJS.DOM.Element as Element
 import qualified GHCJS.DOM.HTMLCanvasElement as Canvas
+import qualified GHCJS.DOM.Performance as Performance
+import qualified GHCJS.DOM.GlobalPerformance as GlobalPerformance
 import GHCJS.DOM.Types
     ( ANGLEInstancedArrays(..)
     , GLenum
     , GObject(..)
     , HTMLCanvasElement(..)
+    , Performance
     , RenderingContext(..)
     , uncheckedCastTo
     , unsafeCastTo
@@ -63,6 +67,8 @@ data CanvasSize = CanvasSize
 
 main :: IO ()
 main = mainWidgetWithCss style $ do
+    window <- DOM.currentWindowUnchecked
+    performance <- GlobalPerformance.getPerformance window
     (canvasEl, _) <- el' "canvas" $ text ""
     canvasRaw <- liftJSM . unsafeCastTo HTMLCanvasElement $
         _element_raw canvasEl
@@ -86,7 +92,8 @@ main = mainWidgetWithCss style $ do
 
     RX.performEvent_ $ liftJSM . updateViewportSize glContext <$>
         catMaybes eCanvasSizeChanged
-    RX.performEvent_ $ liftJSM . render glContext glObjects <$> eRender
+    RX.performEvent_ $
+        liftJSM . render glContext glObjects performance <$> eRender
 
     return ()
 
@@ -177,19 +184,41 @@ fragmentShaderSource = L.intercalate "\n"
 
 render :: GLContext
        -> GLObjects
+       -> Performance
        -> (Particles2, ProjectionMatrix)
        -> JSM ()
-render GLContext{..} GLObjects{..} (particles, projectionMatrix) = do
+render GLContext{..}
+       GLObjects{..}
+       performance
+       (particles, projectionMatrix) = do
+    Performance.mark performance ("render-begin" :: Text)
     GL.uniformMatrix4fv gl (Just projectionUniform) False $
         listFromMatrix projectionMatrix
     GL.clear gl GL.COLOR_BUFFER_BIT
 
     GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
+    Performance.mark performance ("render-bufferSubDataFloat-begin" :: Text)
     bufferSubDataFloat gl GL.ARRAY_BUFFER 0 translations
+    Performance.mark performance ("render-bufferSubDataFloat-end" :: Text)
     GL.bindBuffer gl GL.ARRAY_BUFFER Nothing
 
+    Performance.mark performance ("render-drawArraysInstancedANGLE-begin" :: Text)
     drawArraysInstancedANGLE angleInstancedArrays
         GL.TRIANGLE_FAN 0 (particleGeometryNumSlices + 2) $ VU.length particles
+    Performance.mark performance ("render-end" :: Text)
+
+    Performance.measure performance
+        ("render" :: Text)
+        (Just ("render-begin" :: Text))
+        (Just ("render-end" :: Text))
+    Performance.measure performance
+        ("render-bufferSubDataFloat" :: Text)
+        (Just ("render-bufferSubDataFloat-begin" :: Text))
+        (Just ("render-bufferSubDataFloat-end" :: Text))
+    Performance.measure performance
+        ("render-drawArraysInstancedANGLE" :: Text)
+        (Just ("render-drawArraysInstancedANGLE-begin" :: Text))
+        (Just ("render-end" :: Text))
     where
         translations = [n | p <- VU.toList particles, n <- [ x p, y p ]]
         x p = p ^. (position . _x)
