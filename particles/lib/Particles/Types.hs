@@ -10,6 +10,7 @@ import Control.DeepSeq (NFData, rnf, rwhnf)
 import Control.Lens (makeLenses)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Unboxed.Mutable as VUM
 import Data.Vector.Unboxed.Deriving (derivingUnbox)
 import Linear.V2 (V2)
 
@@ -49,10 +50,21 @@ data ParticlesMap2 = ParticlesMap2
     , mapWidth :: !Int
     , mapHeight :: !Int }
 
+instance NFData ParticlesMap2 where rnf = rwhnf
+
 data ParticlesMap3 = ParticlesMap3
     { map3BucketsSizes :: MapBucketsSizes
     , map3BucketsStorage :: MapBucketsStorage
     , map3Size :: !Int }
+
+instance NFData ParticlesMap3 where rnf = rwhnf
+
+data MParticlesMap3 = MParticlesMap3
+    { mMap3BucketsSizes :: MMapBucketsSizes
+    , mMap3BucketsStorage :: MMapBucketsStorage
+    , mMap3Size :: !Int }
+
+instance NFData MParticlesMap3 where rnf = rwhnf
 
 data ParticlesState = ParticlesState
     { particles :: Particles2
@@ -60,7 +72,12 @@ data ParticlesState = ParticlesState
 
 type MapBucketsSizes = VU.Vector Int
 type MapBucketsStorage = VU.Vector ParticleIndex
+type MMapBucketsSizes = VUM.IOVector Int
+type MMapBucketsStorage = VUM.IOVector ParticleIndex
 type ParticleIndex = Int
 type BucketIndex = Int
 type BucketDim = Double
 type BucketCoord = (Int, Int)
+type BucketCapacity = Int
+type BucketSize = Double
+type MapSize = Int

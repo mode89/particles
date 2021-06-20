@@ -101,7 +101,7 @@ updateParticles :: Maybe Particles2 -> BoundingBox -> Maybe Particles2
 updateParticles = fmap Just
                 . maybe
                     (Model2.initialParticles 500)
-                    (flip Model2.updateParticles)
+                    (flip $ Model2.updateParticles 100 50)
 
 getGLContext :: HTMLCanvasElement -> JSM GLContext
 getGLContext canvas = do

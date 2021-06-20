@@ -31,10 +31,10 @@ particleRadius = 10.0
 tickInterval :: Fractional a => a
 tickInterval = 0.04
 
-initialParticles :: BoundingBox -> Particles
-initialParticles bbox = runST $ do
+initialParticles :: Int -> BoundingBox -> Particles
+initialParticles psNum bbox = runST $ do
     genRef <- newSTRef $ mkStdGen 0
-    replicateM 500 $ randomParticle bbox genRef
+    replicateM psNum $ randomParticle bbox genRef
 
 randomParticle :: BoundingBox -> STRef s StdGen -> ST s Particle
 randomParticle BoundingBox{..} genRef = do

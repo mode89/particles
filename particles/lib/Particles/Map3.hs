@@ -9,13 +9,55 @@ import Control.Monad.ST (runST)
 import Data.Bits
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
-import Data.Word
-import Debug.Trace
 import Linear.V2 (_x, _y)
 import Particles.Types
 
+{-# INLINE newMMapUnsafe #-}
+newMMapUnsafe :: BucketCapacity -> MapSize -> IO MParticlesMap3
+newMMapUnsafe bCapacity size =
+    MParticlesMap3 <$> VUM.unsafeNew numberOfBuckets
+                   <*> VUM.unsafeNew (numberOfBuckets * bCapacity)
+                   <*> return size
+    where
+       numberOfBuckets = size * size
+
+{-# INLINE update #-}
+update :: BucketCapacity
+       -> BucketSize
+       -> BoundingBox
+       -> Particles2
+       -> MParticlesMap3
+       -> IO MParticlesMap3
+update bCapacity maxBucketSize bbox ps prevMap = do
+    -- Create new map if bounding has changed
+    let mapSize = getMapSize bbox maxBucketSize
+    nextMap <- if mapSize == mMap3Size prevMap
+               then return prevMap
+               else newMMapUnsafe bCapacity mapSize
+    let sizes = mMap3BucketsSizes nextMap
+    let storage = mMap3BucketsStorage nextMap
+    -- Clear map
+    VUM.set sizes 0
+    VU.iforM_ ps $ \ particleIndex particle -> do
+        let bIndex = bucketIndex $
+                bucketCoord bbox mapSize (particle ^. position)
+        let beginningOfBucket = bCapacity * bIndex
+        let bucket = VUM.slice
+                beginningOfBucket bCapacity storage
+        bucketSize <- VUM.read sizes bIndex
+        let particleOffset = bucketSize
+        -- Put particle into bucket
+        VUM.write bucket particleOffset particleIndex
+        -- Increase size of the bucket
+        VUM.write sizes bIndex (bucketSize + 1)
+    return nextMap
+
 {-# INLINE make #-}
-make :: Int -> Double -> BoundingBox -> Particles2 -> ParticlesMap3
+make :: BucketCapacity
+     -> BucketSize
+     -> BoundingBox
+     -> Particles2
+     -> ParticlesMap3
 make bucketCapacity maxBucketSize bbox ps = runST $ do
     bucketsSizes <- VUM.new numberOfBuckets
     bucketsStorage <- VUM.unsafeNew $ numberOfBuckets * bucketCapacity
@@ -45,15 +87,18 @@ make bucketCapacity maxBucketSize bbox ps = runST $ do
 
 {-# INLINE getMapSize #-}
 getMapSize :: BoundingBox -> Double -> Int
-getMapSize bbox maxBucketSize =
-    fromIntegral $ nextHighestPowerOf2 (ceiling $ biggerDim / maxBucketSize)
+getMapSize bbox maxBucketSize
+    = fromIntegral
+    . nextHighestPowerOf2
+    . ceiling
+    $ biggerDim / maxBucketSize
     where
         biggerDim = max width height
         width = bbox ^. right - bbox ^. left
         height = bbox ^. top - bbox ^. bottom
 
 {-# INLINE nextHighestPowerOf2 #-}
-nextHighestPowerOf2 :: Word32 -> Word32
+nextHighestPowerOf2 :: Int -> Int
 nextHighestPowerOf2 x = x6 + 1 where
     x1 = x - 1
     x2 = x1 .|. unsafeShiftR x1 1
@@ -79,7 +124,7 @@ bucketIndex (row, col) = fromIntegral $
     encodeMorton16 (fromIntegral col) (fromIntegral row)
 
 {-# INLINE encodeMorton16 #-}
-encodeMorton16 :: Word32 -> Word32 -> Word32
+encodeMorton16 :: Int -> Int -> Int
 encodeMorton16 x y = xS .|. unsafeShiftL yS 1 where
     xS = separateBy1 x
     yS = separateBy1 y

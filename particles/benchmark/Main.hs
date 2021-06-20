@@ -5,16 +5,14 @@ module Main where
 
 import Control.Monad (foldM)
 import Criterion.Main
-import Criterion.Types
-import Debug.Trace
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import qualified Particles.Model as P
-import qualified Particles.Map2 as PM2
-import qualified Particles.Model2 as PM2
-import qualified Particles.Map3 as PM3
+import qualified Particles.Map2 as P2
+import qualified Particles.Model2 as P2
+import qualified Particles.Map3 as P3
 import qualified Particles.Types as P
 
 #ifdef __GHCJS__
@@ -38,28 +36,35 @@ instance NFData DOMEnvironment where rnf = rwhnf
 main :: IO ()
 main = do
     let !bbox = P.BoundingBox 0 1920 0 1080
-    let !particles = P.initialParticles bbox
-    let !particles2 = PM2.initialParticles 1000 bbox
-    let !sortedParticles = sortParticles bbox particles2
+    let !ps1 = P.initialParticles 500 bbox
+    let !ps2 = P2.initialParticles 500 bbox
+    let !psSorted = sortParticles bbox ps2
+    !pmap3 <- P3.newMMapUnsafe 100 64
     containers <- prepareContainers
     defaultMain [
 #ifdef __GHCJS__
         env prepareDOMEnvironment bgroupDOM,
 #endif
-        bench "update-particles" $ nfIO $ foldM (\ !ps _ -> do
-                return $ P.updateParticles ps bbox
-            ) particles [1..100],
-        bench "updateParticles2" $ nfIO $ foldM (\ !ps _ -> do
-                return $ PM2.updateParticles bbox ps
-            ) particles2 [1..100],
-        bgroupMap bbox sortedParticles,
+        bgroupUpdate bbox ps1 ps2,
+        bgroupMap bbox psSorted pmap3,
         bgroupContainers containers
         ]
 
-bgroupMap :: P.BoundingBox -> P.Particles2 -> Benchmark
-bgroupMap !bbox !ps = bgroup "map" [
-      bench "make2" $ whnf (PM2.make bbox) ps
-    , bench "make3" $ whnf (PM3.make 100 50 bbox) ps
+bgroupUpdate :: P.BoundingBox -> P.Particles -> P.Particles2 -> Benchmark
+bgroupUpdate !bbox !ps1 !ps2 = bgroup "updateParticles" [
+      bench "v1" $ nfIO $ foldM (\ !ps _ -> do
+            return $ P.updateParticles ps bbox
+        ) ps1 [1 :: Int .. 100]
+    , bench "v2" $ nfIO $ foldM (\ !ps _ -> do
+            return $ P2.updateParticles 100 50 bbox ps
+        ) ps2 [1 :: Int .. 100]
+    ]
+
+bgroupMap :: P.BoundingBox -> P.Particles2 -> P.MParticlesMap3 -> Benchmark
+bgroupMap !bbox !ps !pmap3 = bgroup "map" [
+      bench "v2/make" $ whnf (P2.make 100 50 bbox) ps
+    , bench "v3/make" $ whnf (P3.make 100 50 bbox) ps
+    , bench "v3/update" $ nfIO $ P3.update 100 50 bbox ps pmap3
     ]
 
 bgroupContainers :: ( [Double]
@@ -154,7 +159,7 @@ sortParticles !bbox !ps
     = VU.concatMap bucketParticles
     $ VU.enumFromN 0 (VU.length $ P.map3BucketsSizes pmap)
     where
-        pmap = PM3.make 100 50 bbox ps
+        pmap = P3.make 100 50 bbox ps
         bucketParticles :: Int -> P.Particles2
         bucketParticles bIndex = VU.map (ps VU.!) bucket where
             bSize = P.map3BucketsSizes pmap VU.! bIndex

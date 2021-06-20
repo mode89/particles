@@ -14,7 +14,7 @@ map2Spec = describe "Map2" $ do
     it "make empty" $ do
         let bbox = BoundingBox 0 70 0 70
         let particles = VU.empty
-        let pmap@ParticlesMap2{..} = make bbox particles
+        let pmap@ParticlesMap2{..} = make 100 50 bbox particles
         let buckets = listFromMap pmap
         mapWidth `shouldBe` 2
         mapHeight `shouldBe` 2
@@ -22,7 +22,7 @@ map2Spec = describe "Map2" $ do
     it "make with one particle" $ do
         let bbox = BoundingBox 0 50 0 50
         let particles = VU.fromList [ Particle (V2 25 25) (V2 0 0) ]
-        let pmap = make bbox particles
+        let pmap = make 100 50 bbox particles
         let buckets = listFromMap pmap
         buckets `shouldBe` [[0]]
     it "make with two particles" $ do
@@ -30,7 +30,7 @@ map2Spec = describe "Map2" $ do
         let particles = VU.fromList
                 [ Particle (V2 60 60) (V2 0 0)
                 , Particle (V2 25 25) (V2 0 0) ]
-        let pmap = make bbox particles
+        let pmap = make 100 50 bbox particles
         let buckets = listFromMap pmap
         buckets `shouldBe` [[1], [], [], [0]]
     it "neighbour buckets" $ do
@@ -49,7 +49,7 @@ map2Spec = describe "Map2" $ do
                 , Particle (V2  70  20) (V2 0 0)
                 , Particle (V2  80  30) (V2 0 0)
                 , Particle (V2  25  70) (V2 0 0) ]
-        let pmap = make bbox particles
+        let pmap = make 100 50 bbox particles
         let neighbourParticles_ = neighbourParticles pmap 0
         Set.fromList (VU.toList $ neighbourParticles_) `shouldBe`
             Set.fromList [1, 2, 3, 4, 5]
@@ -58,5 +58,6 @@ listFromMap :: ParticlesMap2 -> [[Int]]
 listFromMap ParticlesMap2{..} = zipWith listFromBucket [0..] bucketsSizes
     where
         listFromBucket index size = VU.toList $
-            VU.slice (index * maxBucketSize) size mapBucketsStorage
+            VU.slice (index * bCapacity) size mapBucketsStorage
         bucketsSizes = VU.toList mapBucketsSizes
+        bCapacity = VU.length mapBucketsStorage `div` VU.length mapBucketsSizes
