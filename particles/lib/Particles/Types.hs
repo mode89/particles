@@ -49,6 +49,11 @@ data ParticlesMap2 = ParticlesMap2
     , mapWidth :: !Int
     , mapHeight :: !Int }
 
+data ParticlesMap3 = ParticlesMap3
+    { map3BucketsSizes :: MapBucketsSizes
+    , map3BucketsStorage :: MapBucketsStorage
+    , map3Size :: !Int }
+
 data ParticlesState = ParticlesState
     { particles :: Particles2
     , particlesMap :: ParticlesMap2 }
@@ -58,3 +63,4 @@ type MapBucketsStorage = VU.Vector ParticleIndex
 type ParticleIndex = Int
 type BucketIndex = Int
 type BucketDim = Double
+type BucketCoord = (Int, Int)
