@@ -17,10 +17,10 @@ import Particles.Model (particleRadius, tickInterval)
 import Particles.Types
 import System.Random (mkStdGen)
 
-initialParticles :: BoundingBox -> Particles2
-initialParticles bbox = runST $ do
+initialParticles :: Int -> BoundingBox -> Particles2
+initialParticles psNum bbox = runST $ do
     genRef <- newSTRef $ mkStdGen 0
-    VU.replicateM 500 $ Model.randomParticle bbox genRef
+    VU.replicateM psNum $ Model.randomParticle bbox genRef
 
 updateParticles :: BoundingBox -> Particles2 -> Particles2
 updateParticles bbox ps

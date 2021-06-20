@@ -100,7 +100,7 @@ main = mainWidgetWithCss style $ do
 updateParticles :: Maybe Particles2 -> BoundingBox -> Maybe Particles2
 updateParticles = fmap Just
                 . maybe
-                    Model2.initialParticles
+                    (Model2.initialParticles 500)
                     (flip Model2.updateParticles)
 
 getGLContext :: HTMLCanvasElement -> JSM GLContext

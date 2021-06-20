@@ -12,7 +12,9 @@ import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import qualified Particles.Model as P
+import qualified Particles.Map2 as PM2
 import qualified Particles.Model2 as PM2
+import qualified Particles.Map3 as PM3
 import qualified Particles.Types as P
 
 #ifdef __GHCJS__
@@ -37,7 +39,8 @@ main :: IO ()
 main = do
     let !bbox = P.BoundingBox 0 1920 0 1080
     let !particles = P.initialParticles bbox
-    let !particles2 = PM2.initialParticles bbox
+    let !particles2 = PM2.initialParticles 1000 bbox
+    let !sortedParticles = sortParticles bbox particles2
     containers <- prepareContainers
     defaultMain [
 #ifdef __GHCJS__
@@ -49,8 +52,15 @@ main = do
         bench "updateParticles2" $ nfIO $ foldM (\ !ps _ -> do
                 return $ PM2.updateParticles bbox ps
             ) particles2 [1..100],
+        bgroupMap bbox sortedParticles,
         bgroupContainers containers
         ]
+
+bgroupMap :: P.BoundingBox -> P.Particles2 -> Benchmark
+bgroupMap !bbox !ps = bgroup "map" [
+      bench "make2" $ whnf (PM2.make bbox) ps
+    , bench "make3" $ whnf (PM3.make 100 50 bbox) ps
+    ]
 
 bgroupContainers :: ( [Double]
                     , V.Vector Double
@@ -138,3 +148,14 @@ prepareDOMEnvironment = do
     let !bufferData = [0 .. 20000]
     return $ DOMEnvironment gl bufferData
 #endif
+
+sortParticles :: P.BoundingBox -> P.Particles2 -> P.Particles2
+sortParticles !bbox !ps
+    = VU.concatMap bucketParticles
+    $ VU.enumFromN 0 (VU.length $ P.map3BucketsSizes pmap)
+    where
+        pmap = PM3.make 100 50 bbox ps
+        bucketParticles :: Int -> P.Particles2
+        bucketParticles bIndex = VU.map (ps VU.!) bucket where
+            bSize = P.map3BucketsSizes pmap VU.! bIndex
+            bucket = VU.slice (bIndex * 100) bSize (P.map3BucketsStorage pmap)
