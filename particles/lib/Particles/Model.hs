@@ -38,8 +38,8 @@ initialParticles psNum bbox = runST $ do
 
 randomParticle :: BoundingBox -> STRef s StdGen -> ST s Particle
 randomParticle BoundingBox{..} genRef = do
-    x <- random (_left, _right)
-    y <- random (_bottom, _top)
+    x <- random (bboxLeft, bboxRight)
+    y <- random (bboxBottom, bboxTop)
     vx <- random (-maxInitialSpeed, maxInitialSpeed)
     vy <- random (-maxInitialSpeed, maxInitialSpeed)
     return $ Particle { _position = V2 x y, _velocity = V2 vx vy }
@@ -96,48 +96,48 @@ handleCollision anotherParticle particleOfInterest =
 
 {-# INLINE bounceOfWalls #-}
 bounceOfWalls :: BoundingBox -> Particle -> Particle
-bounceOfWalls bbox = bounceLeft
-                   . bounceRight
-                   . bounceBottom
-                   . bounceTop
+bounceOfWalls BoundingBox{..} = bounceLeft
+                              . bounceRight
+                              . bounceBottom
+                              . bounceTop
     where
         bounceLeft p =
-            if p ^. position ^. _x < (bbox ^. left + particleRadius)
+            if p ^. position ^. _x < (bboxLeft + particleRadius)
             then p & (velocity . _x) .~ (abs $ p ^. velocity ^. _x)
             else p
         bounceRight p =
-            if p ^. position ^. _x > (bbox ^. right - particleRadius)
+            if p ^. position ^. _x > (bboxRight - particleRadius)
             then p & (velocity . _x) .~ (- (abs $ p ^. velocity ^. _x))
             else p
         bounceBottom p =
-            if p ^. position ^. _y < (bbox ^. bottom + particleRadius)
+            if p ^. position ^. _y < (bboxBottom + particleRadius)
             then p & (velocity . _y) .~ (abs $ p ^. velocity ^. _y)
             else p
         bounceTop p =
-            if p ^. position ^. _y > (bbox ^. top - particleRadius)
+            if p ^. position ^. _y > (bboxTop - particleRadius)
             then p & (velocity . _y) .~ (- (abs $ p ^. velocity ^. _y))
             else p
 
 {-# INLINE clampToBoundingBox #-}
 clampToBoundingBox :: BoundingBox -> Particle -> Particle
-clampToBoundingBox bbox = clampLeft
-                        . clampRight
-                        . clampBottom
-                        . clampTop
+clampToBoundingBox BoundingBox{..} = clampLeft
+                                   . clampRight
+                                   . clampBottom
+                                   . clampTop
     where
         clampLeft p =
-            if p ^. position ^. _x < (bbox ^. left + particleRadius)
-            then p & (position . _x) .~ (bbox ^. left + particleRadius)
+            if p ^. position ^. _x < (bboxLeft + particleRadius)
+            then p & (position . _x) .~ (bboxLeft + particleRadius)
             else p
         clampRight p =
-            if p ^. position ^. _x > (bbox ^. right - particleRadius)
-            then p & (position . _x) .~ (bbox ^. right - particleRadius)
+            if p ^. position ^. _x > (bboxRight - particleRadius)
+            then p & (position . _x) .~ (bboxRight - particleRadius)
             else p
         clampBottom p =
-            if p ^. position ^. _y < (bbox ^. bottom + particleRadius)
-            then p & (position . _y) .~ (bbox ^. bottom + particleRadius)
+            if p ^. position ^. _y < (bboxBottom + particleRadius)
+            then p & (position . _y) .~ (bboxBottom + particleRadius)
             else p
         clampTop p =
-            if p ^. position ^. _y > (bbox ^. top - particleRadius)
-            then p & (position . _y) .~ (bbox ^. top - particleRadius)
+            if p ^. position ^. _y > (bboxTop - particleRadius)
+            then p & (position . _y) .~ (bboxTop - particleRadius)
             else p

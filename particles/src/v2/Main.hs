@@ -323,8 +323,5 @@ modelMatrix :: Double -> M44 Double
 modelMatrix radius = scaled $ V4 radius radius 1.0 1.0
 
 boundingBoxFromCanvasSize :: CanvasSize -> BoundingBox
-boundingBoxFromCanvasSize CanvasSize{..} = BoundingBox
-    { _left = 0.0
-    , _right = fromIntegral width
-    , _bottom = 0.0
-    , _top = fromIntegral height }
+boundingBoxFromCanvasSize CanvasSize{..} =
+    makeBoundingBox 0.0 (fromIntegral width) 0.0 (fromIntegral height)

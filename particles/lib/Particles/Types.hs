@@ -7,6 +7,7 @@
 module Particles.Types where
 
 import Control.DeepSeq (NFData, rnf, rwhnf)
+import Control.Exception (assert)
 import Control.Lens (makeLenses)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
@@ -33,11 +34,17 @@ type Particles = [Particle]
 type Particles2 = VU.Vector Particle
 
 data BoundingBox = BoundingBox
-    { _left :: !Double
-    , _right :: !Double
-    , _bottom :: !Double
-    , _top :: !Double } deriving (Eq, Show)
-makeLenses ''BoundingBox
+    { bboxLeft :: !Double
+    , bboxRight :: !Double
+    , bboxBottom :: !Double
+    , bboxTop :: !Double
+    , bboxWidth :: !Double
+    , bboxHeight :: !Double } deriving (Eq, Show)
+
+makeBoundingBox :: Double -> Double -> Double -> Double -> BoundingBox
+makeBoundingBox l r b t = BoundingBox l r b t w h where
+    w = assert (r > l) (r - l)
+    h = assert (t > b) (t - b)
 
 data ParticlesMap = ParticlesMap
     { buckets :: V.Vector Particles

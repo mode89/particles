@@ -9,7 +9,7 @@ import Linear.V2 (V2(..), _x, _y)
 import Particles.Types
 
 makeParticlesMap :: BoundingBox -> Particles -> ParticlesMap
-makeParticlesMap bbox particles =
+makeParticlesMap bbox@BoundingBox{..} particles =
     ParticlesMap { buckets = sortedParticles
                  , boundingBox = bbox
                  , width = mapWidth
@@ -23,8 +23,8 @@ makeParticlesMap bbox particles =
         labelParticle p =
             (particleBucketIndex bbox mapBucketDim $ p ^. position, p)
         numberOfBuckets = mapWidth * mapHeight
-        mapWidth = ceiling $ (bbox ^. right - bbox ^. left) / mapBucketDim
-        mapHeight = ceiling $ (bbox ^. top - bbox ^. bottom) / mapBucketDim
+        mapWidth = ceiling $ bboxWidth / mapBucketDim
+        mapHeight = ceiling $ bboxHeight / mapBucketDim
         mapBucketDim = 50
 
 particlesInsideBucket :: ParticlesMap -> BucketIndex -> Particles
@@ -34,9 +34,9 @@ particleBucketIndex :: BoundingBox -> BucketDim -> Position -> BucketIndex
 particleBucketIndex BoundingBox{..} bucketDim pos =
     indexFromRowAndColumn columns row column
     where
-        column = floor $ (pos ^. _x - _left) / bucketDim
-        row = floor $ (pos ^. _y - _bottom) / bucketDim
-        columns = ceiling $ (_right - _left) / bucketDim
+        column = floor $ (pos ^. _x - bboxLeft) / bucketDim
+        row = floor $ (pos ^. _y - bboxBottom) / bucketDim
+        columns = ceiling $ bboxWidth / bucketDim
 
 neighbourParticles :: ParticlesMap -> Particle -> Particles
 neighbourParticles pmap@ParticlesMap{..} particle =

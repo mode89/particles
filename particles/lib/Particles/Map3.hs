@@ -87,15 +87,13 @@ make bucketCapacity maxBucketSize bbox ps = runST $ do
 
 {-# INLINE getMapSize #-}
 getMapSize :: BoundingBox -> Double -> Int
-getMapSize bbox maxBucketSize
+getMapSize BoundingBox{..} maxBucketSize
     = fromIntegral
     . nextHighestPowerOf2
     . ceiling
     $ biggerDim / maxBucketSize
     where
-        biggerDim = max width height
-        width = bbox ^. right - bbox ^. left
-        height = bbox ^. top - bbox ^. bottom
+        biggerDim = max bboxWidth bboxHeight
 
 {-# INLINE nextHighestPowerOf2 #-}
 nextHighestPowerOf2 :: Int -> Int
@@ -111,12 +109,10 @@ nextHighestPowerOf2 x = x6 + 1 where
 bucketCoord :: BoundingBox -> Int -> Position -> BucketCoord
 bucketCoord BoundingBox{..} mapSize pos = (row, col)
     where
-        col = floor $ (pos ^. _x - _left) / bucketWidth
-        row = floor $ (pos ^. _y - _bottom) / bucketHeight
+        col = floor $ (pos ^. _x - bboxLeft) / bucketWidth
+        row = floor $ (pos ^. _y - bboxBottom) / bucketHeight
         bucketWidth = bboxWidth / fromIntegral mapSize
         bucketHeight = bboxHeight / fromIntegral mapSize
-        bboxWidth = _right - _left
-        bboxHeight = _top - _bottom
 
 {-# INLINE bucketIndex #-}
 bucketIndex :: BucketCoord -> BucketIndex

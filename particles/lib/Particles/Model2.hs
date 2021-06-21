@@ -48,49 +48,49 @@ updateParticle pmap ps bbox bSize pIndex p
 
 {-# INLINE clampToBoundingBox #-}
 clampToBoundingBox :: BoundingBox -> Particle -> Particle
-clampToBoundingBox bbox = clampLeft
-                        . clampRight
-                        . clampBottom
-                        . clampTop
+clampToBoundingBox BoundingBox{..} = clampLeft
+                                   . clampRight
+                                   . clampBottom
+                                   . clampTop
     where
         clampLeft p =
-            if p ^. (position . _x) < (bbox ^. left + particleRadius)
-            then p & (position . _x) .~ (bbox ^. left + particleRadius)
+            if p ^. (position . _x) < (bboxLeft + particleRadius)
+            then p & (position . _x) .~ (bboxLeft + particleRadius)
             else p
         clampRight p =
-            if p ^. (position . _x) > (bbox ^. right - particleRadius)
-            then p & (position . _x) .~ (bbox ^. right - particleRadius)
+            if p ^. (position . _x) > (bboxRight - particleRadius)
+            then p & (position . _x) .~ (bboxRight - particleRadius)
             else p
         clampBottom p =
-            if p ^. (position . _y) < (bbox ^. bottom + particleRadius)
-            then p & (position . _y) .~ (bbox ^. bottom + particleRadius)
+            if p ^. (position . _y) < (bboxBottom + particleRadius)
+            then p & (position . _y) .~ (bboxBottom + particleRadius)
             else p
         clampTop p =
-            if p ^. (position . _y) > (bbox ^. top - particleRadius)
-            then p & (position . _y) .~ (bbox ^. top - particleRadius)
+            if p ^. (position . _y) > (bboxTop - particleRadius)
+            then p & (position . _y) .~ (bboxTop - particleRadius)
             else p
 
 {-# INLINE bounceOfWalls #-}
 bounceOfWalls :: BoundingBox -> Particle -> Particle
-bounceOfWalls bbox = bounceLeft
-                   . bounceRight
-                   . bounceBottom
-                   . bounceTop
+bounceOfWalls BoundingBox{..} = bounceLeft
+                              . bounceRight
+                              . bounceBottom
+                              . bounceTop
     where
         bounceLeft p =
-            if p ^. (position . _x) < (bbox ^. left + particleRadius)
+            if p ^. (position . _x) < (bboxLeft + particleRadius)
             then p & (velocity . _x) .~ abs (p ^. (velocity . _x))
             else p
         bounceRight p =
-            if p ^. (position . _x) > (bbox ^. right - particleRadius)
+            if p ^. (position . _x) > (bboxRight - particleRadius)
             then p & (velocity . _x) .~ (- (abs $ p ^. (velocity . _x)))
             else p
         bounceBottom p =
-            if p ^. (position . _y) < (bbox ^. bottom + particleRadius)
+            if p ^. (position . _y) < (bboxBottom + particleRadius)
             then p & (velocity . _y) .~ abs (p ^. (velocity . _y))
             else p
         bounceTop p =
-            if p ^. (position . _y) > (bbox ^. top - particleRadius)
+            if p ^. (position . _y) > (bboxTop - particleRadius)
             then p & (velocity . _y) .~ (- (abs $ p ^. (velocity . _y)))
             else p
 

@@ -17,7 +17,7 @@ make :: BucketCapacity
      -> BoundingBox
      -> Particles2
      -> ParticlesMap2
-make bCapacity bSize bbox ps = runST $ do
+make bCapacity bSize bbox@BoundingBox{..} ps = runST $ do
     bucketsSizes <- VUM.new numberOfBuckets
     bucketsStorage <- VUM.unsafeNew $ numberOfBuckets * bCapacity
     fillBuckets bucketsSizes bucketsStorage
@@ -31,8 +31,8 @@ make bCapacity bSize bbox ps = runST $ do
         , mapHeight = height }
     where
         numberOfBuckets = width * height
-        !width = ceiling $ (bbox ^. right - bbox ^. left) / bSize
-        !height = ceiling $ (bbox ^. top - bbox ^. bottom) / bSize
+        !width = ceiling $ bboxWidth / bSize
+        !height = ceiling $ bboxHeight / bSize
         fillBuckets sizes storage =
             VU.iforM_ ps $ \ particleIndex particle -> do
                 let bIndex = bucketIndex bbox bSize (particle ^. position)
@@ -51,9 +51,9 @@ bucketIndex :: BoundingBox -> BucketSize -> Position -> BucketIndex
 bucketIndex BoundingBox{..} bSize pos =
     indexFromRowAndColumn columns row column
     where
-        column = floor $ (pos ^. _x - _left) / bSize
-        row = floor $ (pos ^. _y - _bottom) / bSize
-        columns = ceiling $ (_right - _left) / bSize
+        column = floor $ (pos ^. _x - bboxLeft) / bSize
+        row = floor $ (pos ^. _y - bboxBottom) / bSize
+        columns = ceiling $ bboxWidth / bSize
 
 {-# INLINE indexFromRowAndColumn #-}
 indexFromRowAndColumn :: Int -> Int -> Int -> BucketIndex

@@ -35,7 +35,7 @@ instance NFData DOMEnvironment where rnf = rwhnf
 
 main :: IO ()
 main = do
-    let !bbox = P.BoundingBox 0 1920 0 1080
+    let !bbox = P.makeBoundingBox 0 1920 0 1080
     let !ps1 = P.initialParticles 500 bbox
     let !ps2 = P2.initialParticles 500 bbox
     let !psSorted = sortParticles bbox ps2
