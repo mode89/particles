@@ -1,7 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE Strict #-}
 
 module Particles.Map2 where
 
@@ -27,12 +26,13 @@ make bCapacity bSize bbox ps = runST $ do
     return $ ParticlesMap2
         { mapBucketsSizes = frozenSizes
         , mapBucketsStorage = frozenStorage
+        , mapBucketCapacity = bCapacity
         , mapWidth = width
         , mapHeight = height }
     where
         numberOfBuckets = width * height
-        width = ceiling $ (bbox ^. right - bbox ^. left) / bSize
-        height = ceiling $ (bbox ^. top - bbox ^. bottom) / bSize
+        !width = ceiling $ (bbox ^. right - bbox ^. left) / bSize
+        !height = ceiling $ (bbox ^. top - bbox ^. bottom) / bSize
         fillBuckets sizes storage =
             VU.iforM_ ps $ \ particleIndex particle -> do
                 let bIndex = bucketIndex bbox bSize (particle ^. position)
@@ -67,23 +67,22 @@ neighbourParticles ParticlesMap2{..} pBucketIndex
     = VU.concatMap particlesInsideBucket
     $ neighbourBuckets mapWidth mapHeight bRow bCol
     where
-        bCapacity = VU.length mapBucketsStorage `div` VU.length mapBucketsSizes
         particlesInsideBucket bIndex =
-            let beginningOfBucket = bIndex * bCapacity
+            let beginningOfBucket = bIndex * mapBucketCapacity
                 bucketSize = mapBucketsSizes VU.! bIndex
             in VU.slice beginningOfBucket bucketSize mapBucketsStorage
         (bRow, bCol) = rowAndColumnFromIndex pBucketIndex mapWidth
 
 {-# INLINE neighbourBuckets #-}
 neighbourBuckets :: Int -> Int -> Int -> Int -> VU.Vector BucketIndex
-neighbourBuckets mapWidth mapHeight bRow bCol
+neighbourBuckets mapWidth mapHeight !bRow !bCol
     = VU.map bucketIndex_
     . VU.filter insideBoundingBox
     . VU.map absoluteBucketCoord
     $ neighbourOffsets
     where
-        bucketIndex_ = uncurry $ indexFromRowAndColumn mapWidth
-        insideBoundingBox (r, c)
+        bucketIndex_ (r, c) = indexFromRowAndColumn mapWidth r c
+        insideBoundingBox (!r, !c)
              = (r >= 0)
             && (r < mapHeight)
             && (c >= 0)

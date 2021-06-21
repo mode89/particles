@@ -15,10 +15,11 @@ import Data.Vector.Unboxed.Deriving (derivingUnbox)
 import Linear.V2 (V2)
 
 type Position = V2 Double
+type Velocity = V2 Double
 
 data Particle = Particle
-    { _position :: Position
-    , _velocity :: V2 Double } deriving (Eq, Show)
+    { _position :: !Position
+    , _velocity :: !Velocity } deriving (Eq, Show)
 makeLenses ''Particle
 
 instance NFData Particle where rnf = rwhnf
@@ -45,8 +46,9 @@ data ParticlesMap = ParticlesMap
     , bucketDim :: BucketDim } deriving (Eq, Show)
 
 data ParticlesMap2 = ParticlesMap2
-    { mapBucketsSizes :: MapBucketsSizes
-    , mapBucketsStorage :: MapBucketsStorage
+    { mapBucketsSizes :: !MapBucketsSizes
+    , mapBucketsStorage :: !MapBucketsStorage
+    , mapBucketCapacity :: !Int
     , mapWidth :: !Int
     , mapHeight :: !Int }
 

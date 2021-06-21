@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE Strict #-}
 
 module Particles.Model2 where
 
@@ -27,11 +26,11 @@ updateParticles :: BucketCapacity
                 -> BoundingBox
                 -> Particles2
                 -> Particles2
-updateParticles bCapacity bSize bbox ps
+updateParticles !bCapacity !bSize !bbox ps
     = VU.imap updateParticle_ ps
     where
         updateParticle_ = updateParticle pmap ps bbox bSize
-        pmap = Map2.make bCapacity bSize bbox ps
+        !pmap = Map2.make bCapacity bSize bbox ps
 
 {-# INLINE updateParticle #-}
 updateParticle :: ParticlesMap2
