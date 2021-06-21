@@ -136,3 +136,25 @@ handleCollision anotherParticle particleOfInterest =
         p1 = particleOfInterest ^. position
         v2 = anotherParticle ^. velocity
         p2 = anotherParticle ^. position
+
+-- Tests for optimizing core
+
+-- testHC :: Particle -> Particle -> Double
+-- testHC p1 p2 = norm $ pos + vel where
+--     pos = p ^. position
+--     vel = p ^. velocity
+--     p = handleCollision p1 p2
+
+-- testHCs :: ParticlesMap2
+--         -> Particles2
+--         -> BoundingBox
+--         -> BucketSize
+--         -> ParticleIndex
+--         -> Double
+
+-- testHCs pmap ps bbox bSize pIndex =
+--     let p = ps VU.! pIndex
+--         pr = handleCollisions pmap ps bbox bSize pIndex p
+--         pos = pr ^. position
+--         vel = pr ^. velocity
+--     in norm $ pos + vel

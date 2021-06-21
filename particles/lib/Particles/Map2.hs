@@ -95,3 +95,11 @@ neighbourBuckets mapWidth mapHeight !bRow !bCol
 {-# INLINE rowAndColumnFromIndex #-}
 rowAndColumnFromIndex :: BucketIndex -> Int -> (Int, Int)
 rowAndColumnFromIndex index width = index `divMod` width
+
+-- Tests for optimizing core
+
+-- testNP :: ParticlesMap2 -> BucketIndex -> Int
+-- testNP pmap bIndex = VU.sum $ neighbourParticles pmap bIndex
+
+-- testNB :: Int -> Int -> Int -> Int -> Int
+-- testNB w h r c = VU.sum $ neighbourBuckets w h r c
