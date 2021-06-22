@@ -53,8 +53,8 @@ data ParticlesMap = ParticlesMap
     , bucketDim :: BucketDim } deriving (Eq, Show)
 
 data ParticlesMap2 = ParticlesMap2
-    { mapBucketsSizes :: !MapBucketsSizes
-    , mapBucketsStorage :: !MapBucketsStorage
+    { mapBucketsSizes :: MapBucketsSizes
+    , mapBucketsStorage :: MapBucketsStorage
     , mapBucketCapacity :: !Int
     , mapWidth :: !Int
     , mapHeight :: !Int }
