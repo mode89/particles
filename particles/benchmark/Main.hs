@@ -33,13 +33,15 @@ data DOMEnvironment = DOMEnvironment {
 instance NFData DOMEnvironment where rnf = rwhnf
 #endif
 
+kBucketCapacity = 64
+
 main :: IO ()
 main = do
     let !bbox = P.makeBoundingBox 0 1920 0 1080
     let !ps1 = P.initialParticles 500 bbox
     let !ps2 = P2.initialParticles 500 bbox
     let !psSorted = sortParticles bbox ps2
-    !pmap3 <- P3.newMMapUnsafe 100 64
+    !pmap3 <- P3.newMMapUnsafe kBucketCapacity 64
     containers <- prepareContainers
     defaultMain [
 #ifdef __GHCJS__
@@ -62,9 +64,9 @@ bgroupUpdate !bbox !ps1 !ps2 = bgroup "updateParticles" [
 
 bgroupMap :: P.BoundingBox -> P.Particles2 -> P.MParticlesMap3 -> Benchmark
 bgroupMap !bbox !ps !pmap3 = bgroup "map" [
-      bench "v2/make" $ whnf (P2.make 100 50 bbox) ps
-    , bench "v3/make" $ whnf (P3.make 100 50 bbox) ps
-    , bench "v3/update" $ nfIO $ P3.update 100 50 bbox ps pmap3
+      bench "v2/make" $ whnf (P2.make kBucketCapacity 50 bbox) ps
+    , bench "v3/make" $ whnf (P3.make kBucketCapacity 50 bbox) ps
+    , bench "v3/update" $ nfIO $ P3.update kBucketCapacity 50 bbox ps pmap3
     ]
 
 bgroupContainers :: ( [Double]
@@ -159,8 +161,8 @@ sortParticles !bbox !ps
     = VU.concatMap bucketParticles
     $ VU.enumFromN 0 (VU.length $ P.map3BucketsSizes pmap)
     where
-        pmap = P3.make 100 50 bbox ps
+        pmap = P3.make kBucketCapacity 50 bbox ps
         bucketParticles :: Int -> P.Particles2
         bucketParticles bIndex = VU.map (ps VU.!) bucket where
             bSize = P.map3BucketsSizes pmap VU.! bIndex
-            bucket = VU.slice (bIndex * 100) bSize (P.map3BucketsStorage pmap)
+            bucket = VU.slice (bIndex * kBucketCapacity) bSize (P.map3BucketsStorage pmap)
