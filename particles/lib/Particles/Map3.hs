@@ -131,3 +131,24 @@ encodeMorton16 x y = xS .|. unsafeShiftL yS 1 where
         x2 = (x1 .|. unsafeShiftL x1 4) .&. 0x0F0F0F0F
         x3 = (x2 .|. unsafeShiftL x2 2) .&. 0x33333333
         x4 = (x3 .|. unsafeShiftL x3 1) .&. 0x55555555
+
+{-# INLINE neighbourBuckets #-}
+neighbourBuckets :: MapSize -> BucketCoord -> VU.Vector BucketIndex
+neighbourBuckets mapSize (bRow, bCol)
+    = VU.map bucketIndex
+    . VU.filter insideBoundingBox
+    . VU.map absoluteBucketCoord
+    $ neighbourOffsets
+    where
+        insideBoundingBox (r, c)
+             = (r >= 0)
+            && (r < mapSize)
+            && (c >= 0)
+            && (c < mapSize)
+        absoluteBucketCoord (r, c) =
+            ( bRow + r - 1
+            , bCol + c - 1 )
+        neighbourOffsets = VU.generate 9 (`divMod` 3)
+
+-- testNB :: MapSize -> BucketCoord -> Int
+-- testNB !mapSize (!r, !c) = VU.sum $ neighbourBuckets mapSize (r, c)

@@ -3,6 +3,7 @@
 
 module Map3 where
 
+import qualified Data.Set as Set
 import qualified Data.Vector.Unboxed as VU
 import Linear.V2 (V2(..))
 import Particles.Map3
@@ -71,6 +72,14 @@ map3Spec = describe "Map3" $ do
         let pmap = make 100 50 bbox particles
         let buckets = listFromMap 100 pmap
         buckets `shouldBe` [[], [0], [1], []]
+
+    it "neighbourBuckets" $ do
+        Set.fromList (VU.toList $ neighbourBuckets 4 (1, 1)) `shouldBe`
+            Set.fromList [0, 1, 2, 3, 4, 6, 8, 9, 12]
+        Set.fromList (VU.toList $ neighbourBuckets 4 (1, 0)) `shouldBe`
+            Set.fromList [0, 1, 2, 3, 8, 9]
+        Set.fromList (VU.toList $ neighbourBuckets 4 (2, 3)) `shouldBe`
+            Set.fromList [6, 7, 12, 13, 14, 15]
 
 listFromMap :: Int -> ParticlesMap3 -> [[Int]]
 listFromMap bucketCapacity ParticlesMap3{..} = zipWith listFromBucket [0..] bucketsSizes
