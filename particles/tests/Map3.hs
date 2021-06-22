@@ -46,7 +46,7 @@ map3Spec = describe "Map3" $ do
     it "bucketCoord" $ do
         let bbox = makeBoundingBox 0 70 0 70
         let pos = V2 60 25
-        bucketCoord bbox 2 pos `shouldBe` (0, 1)
+        bucketCoord bbox 35 35 pos `shouldBe` (0, 1)
 
     it "make empty" $ do
         let bbox = makeBoundingBox 0 70 0 70

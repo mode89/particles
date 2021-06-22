@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE Strict #-}
 
 module Particles.Map3 where
 
@@ -17,6 +16,7 @@ newMMapUnsafe :: BucketCapacity -> MapSize -> IO MParticlesMap3
 newMMapUnsafe bCapacity size =
     MParticlesMap3 <$> VUM.unsafeNew numberOfBuckets
                    <*> VUM.unsafeNew (numberOfBuckets * bCapacity)
+                   <*> return bCapacity
                    <*> return size
     where
        numberOfBuckets = size * size
@@ -28,7 +28,7 @@ update :: BucketCapacity
        -> Particles2
        -> MParticlesMap3
        -> IO MParticlesMap3
-update bCapacity maxBucketSize bbox ps prevMap = do
+update !bCapacity !maxBucketSize bbox@BoundingBox{..} ps prevMap = do
     -- Create new map if bounding has changed
     let mapSize = getMapSize bbox maxBucketSize
     nextMap <- if mapSize == mMap3Size prevMap
@@ -38,9 +38,11 @@ update bCapacity maxBucketSize bbox ps prevMap = do
     let storage = mMap3BucketsStorage nextMap
     -- Clear map
     VUM.set sizes 0
+    let !bWidth = bboxWidth / fromIntegral mapSize
+    let !bHeight = bboxHeight / fromIntegral mapSize
     VU.iforM_ ps $ \ particleIndex particle -> do
         let bIndex = bucketIndex $
-                bucketCoord bbox mapSize (particle ^. position)
+                bucketCoord bbox bWidth bHeight (particle ^. position)
         let beginningOfBucket = bCapacity * bIndex
         let bucket = VUM.slice
                 beginningOfBucket bCapacity storage
@@ -58,7 +60,7 @@ make :: BucketCapacity
      -> BoundingBox
      -> Particles2
      -> ParticlesMap3
-make bucketCapacity maxBucketSize bbox ps = runST $ do
+make bucketCapacity maxBucketSize bbox@BoundingBox{..} ps = runST $ do
     bucketsSizes <- VUM.new numberOfBuckets
     bucketsStorage <- VUM.unsafeNew $ numberOfBuckets * bucketCapacity
     fillBuckets bucketsSizes bucketsStorage
@@ -71,10 +73,12 @@ make bucketCapacity maxBucketSize bbox ps = runST $ do
     where
         numberOfBuckets = mapSize * mapSize
         mapSize = getMapSize bbox maxBucketSize
+        bWidth = bboxWidth / fromIntegral mapSize
+        bHeight = bboxHeight / fromIntegral mapSize
         fillBuckets sizes storage =
             VU.iforM_ ps $ \ particleIndex particle -> do
                 let bIndex = bucketIndex $
-                        bucketCoord bbox mapSize (particle ^. position)
+                        bucketCoord bbox bWidth bHeight (particle ^. position)
                 let beginningOfBucket = bucketCapacity * bIndex
                 let bucket = VUM.slice
                         beginningOfBucket bucketCapacity storage
@@ -106,13 +110,11 @@ nextHighestPowerOf2 x = x6 + 1 where
     x6 = x5 .|. unsafeShiftR x5 16
 
 {-# INLINE bucketCoord #-}
-bucketCoord :: BoundingBox -> Int -> Position -> BucketCoord
-bucketCoord BoundingBox{..} mapSize pos = (row, col)
+bucketCoord :: BoundingBox -> Double -> Double -> Position -> BucketCoord
+bucketCoord BoundingBox{..} bWidth bHeight pos = (row, col)
     where
-        col = floor $ (pos ^. _x - bboxLeft) / bucketWidth
-        row = floor $ (pos ^. _y - bboxBottom) / bucketHeight
-        bucketWidth = bboxWidth / fromIntegral mapSize
-        bucketHeight = bboxHeight / fromIntegral mapSize
+        col = floor $ (pos ^. _x - bboxLeft) / bWidth
+        row = floor $ (pos ^. _y - bboxBottom) / bHeight
 
 {-# INLINE bucketIndex #-}
 bucketIndex :: BucketCoord -> BucketIndex

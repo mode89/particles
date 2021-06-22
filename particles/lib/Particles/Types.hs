@@ -71,6 +71,7 @@ instance NFData ParticlesMap3 where rnf = rwhnf
 data MParticlesMap3 = MParticlesMap3
     { mMap3BucketsSizes :: MMapBucketsSizes
     , mMap3BucketsStorage :: MMapBucketsStorage
+    , mMap3BucketCapacity :: !Int
     , mMap3Size :: !Int }
 
 instance NFData MParticlesMap3 where rnf = rwhnf
