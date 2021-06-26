@@ -7,7 +7,8 @@ import qualified Data.Set as Set
 import qualified Data.Vector.Unboxed as VU
 import Linear.V2 (V2(..))
 import Particles.Map3
-import Particles.Types
+import Particles.Map3.Types
+import Particles.Types hiding (ParticlesMap)
 import Test.Hspec
 
 map3Spec :: Spec
@@ -52,9 +53,9 @@ map3Spec = describe "Map3" $ do
     it "make empty" $ do
         let bbox = makeBoundingBox 0 70 0 70
         let particles = VU.empty
-        let pmap@ParticlesMap3{..} = make 100 50 bbox particles
+        let pmap@ParticlesMap{..} = make 100 50 bbox particles
         let buckets = listFromMap 100 pmap
-        map3Size `shouldBe` 2
+        mapSize `shouldBe` 2
         buckets `shouldBe` [[], [], [], []]
 
     it "make with one particle" $ do
@@ -81,9 +82,10 @@ map3Spec = describe "Map3" $ do
         Set.fromList (VU.toList $ neighbourBuckets 4 (2, 3)) `shouldBe`
             Set.fromList [6, 7, 12, 13, 14, 15]
 
-listFromMap :: Int -> ParticlesMap3 -> [[Int]]
-listFromMap bucketCapacity ParticlesMap3{..} = zipWith listFromBucket [0..] bucketsSizes
+listFromMap :: Int -> ParticlesMap -> [[Int]]
+listFromMap bucketCapacity ParticlesMap{..} =
+    zipWith listFromBucket [0..] bucketsSizes
     where
         listFromBucket index size = VU.toList $
-            VU.slice (index * bucketCapacity) size map3BucketsStorage
-        bucketsSizes = VU.toList map3BucketsSizes
+            VU.slice (index * bucketCapacity) size mapBucketsStorage
+        bucketsSizes = VU.toList mapBucketsSizes

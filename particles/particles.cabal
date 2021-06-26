@@ -19,6 +19,7 @@ library
   exposed-modules:     Particles.Map
                      , Particles.Map2
                      , Particles.Map3
+                     , Particles.Map3.Types
                      , Particles.Model
                      , Particles.Model2
                      , Particles.Types

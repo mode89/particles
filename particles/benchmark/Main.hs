@@ -13,6 +13,7 @@ import qualified Particles.Model as P
 import qualified Particles.Map2 as P2
 import qualified Particles.Model2 as P2
 import qualified Particles.Map3 as P3
+import qualified Particles.Map3.Types as P3
 import qualified Particles.Types as P
 
 #ifdef __GHCJS__
@@ -62,7 +63,7 @@ bgroupUpdate !bbox !ps1 !ps2 = bgroup "updateParticles" [
         ) ps2 [1 :: Int .. 100]
     ]
 
-bgroupMap :: P.BoundingBox -> P.Particles2 -> P.MParticlesMap3 -> Benchmark
+bgroupMap :: P.BoundingBox -> P.Particles2 -> P3.MParticlesMap -> Benchmark
 bgroupMap !bbox !ps !pmap3 = bgroup "map" [
       bench "v2/make" $ whnf (P2.make kBucketCapacity 50 bbox) ps
     , bench "v3/make" $ whnf (P3.make kBucketCapacity 50 bbox) ps
@@ -159,10 +160,11 @@ prepareDOMEnvironment = do
 sortParticles :: P.BoundingBox -> P.Particles2 -> P.Particles2
 sortParticles !bbox !ps
     = VU.concatMap bucketParticles
-    $ VU.enumFromN 0 (VU.length $ P.map3BucketsSizes pmap)
+    $ VU.enumFromN 0 (VU.length $ P3.mapBucketsSizes pmap)
     where
         pmap = P3.make kBucketCapacity 50 bbox ps
         bucketParticles :: Int -> P.Particles2
         bucketParticles bIndex = VU.map (ps VU.!) bucket where
-            bSize = P.map3BucketsSizes pmap VU.! bIndex
-            bucket = VU.slice (bIndex * kBucketCapacity) bSize (P.map3BucketsStorage pmap)
+            bSize = P3.mapBucketsSizes pmap VU.! bIndex
+            bucket = VU.slice (bIndex * kBucketCapacity)
+                bSize (P3.mapBucketsStorage pmap)

@@ -61,21 +61,6 @@ data ParticlesMap2 = ParticlesMap2
 
 instance NFData ParticlesMap2 where rnf = rwhnf
 
-data ParticlesMap3 = ParticlesMap3
-    { map3BucketsSizes :: MapBucketsSizes
-    , map3BucketsStorage :: MapBucketsStorage
-    , map3Size :: !Int }
-
-instance NFData ParticlesMap3 where rnf = rwhnf
-
-data MParticlesMap3 = MParticlesMap3
-    { mMap3BucketsSizes :: MMapBucketsSizes
-    , mMap3BucketsStorage :: MMapBucketsStorage
-    , mMap3BucketCapacity :: !Int
-    , mMap3Size :: !Int }
-
-instance NFData MParticlesMap3 where rnf = rwhnf
-
 data ParticlesState = ParticlesState
     { particles :: Particles2
     , particlesMap :: ParticlesMap2 }
