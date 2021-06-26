@@ -20,7 +20,7 @@ newMMapUnsafe bCapacity size =
                   <*> return bCapacity
                   <*> return size
     where
-       numberOfBuckets = size * size
+        numberOfBuckets = size * size
 
 {-# INLINE update #-}
 update :: BucketCapacity
