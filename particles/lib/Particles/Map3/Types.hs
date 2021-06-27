@@ -8,6 +8,7 @@ import Particles.Types hiding (ParticlesMap)
 data ParticlesMap = ParticlesMap
     { mapBucketsSizes :: MapBucketsSizes
     , mapBucketsStorage :: MapBucketsStorage
+    , mapBucketCapacity :: !Int
     , mapSize :: !Int }
 
 instance NFData ParticlesMap where rnf = rwhnf

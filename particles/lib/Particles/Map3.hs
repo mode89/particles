@@ -70,6 +70,7 @@ make bucketCapacity maxBucketSize bbox@BoundingBox{..} ps = runST $ do
     return $ ParticlesMap
         { mapBucketsSizes = frozenSizes
         , mapBucketsStorage = frozenStorage
+        , mapBucketCapacity = bucketCapacity
         , mapSize = mapSize }
     where
         numberOfBuckets = mapSize * mapSize
@@ -153,3 +154,19 @@ neighbourBuckets mapSize (bRow, bCol)
 
 -- testNB :: MapSize -> BucketCoord -> Int
 -- testNB !mapSize (!r, !c) = VU.sum $ neighbourBuckets mapSize (r, c)
+
+{-# INLINE neighbourParticles #-}
+neighbourParticles :: ParticlesMap
+                   -> BucketCoord
+                   -> VU.Vector ParticleIndex
+neighbourParticles ParticlesMap{..} bCoord
+    = VU.concatMap particlesInsideBucket
+    $ neighbourBuckets mapSize bCoord
+    where
+        particlesInsideBucket bIndex =
+            let beginningOfBucket = bIndex * mapBucketCapacity
+                bucketSize = mapBucketsSizes VU.! bIndex
+            in VU.slice beginningOfBucket bucketSize mapBucketsStorage
+
+-- testNP :: ParticlesMap -> BucketCoord -> Int
+-- testNP pmap (!bRow, !bCol) = VU.sum $ neighbourParticles pmap (bRow, bCol)

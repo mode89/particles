@@ -82,6 +82,21 @@ map3Spec = describe "Map3" $ do
         Set.fromList (VU.toList $ neighbourBuckets 4 (2, 3)) `shouldBe`
             Set.fromList [6, 7, 12, 13, 14, 15]
 
+    it "neighbourParticles" $ do
+        let bbox = makeBoundingBox 0 200 0 200
+        let particles = VU.fromList
+                [ Particle (V2 110 110) (V2 0 0)
+                , Particle (V2  20  20) (V2 0 0)
+                , Particle (V2  10  10) (V2 0 0)
+                , Particle (V2 170  20) (V2 0 0)
+                , Particle (V2  70  20) (V2 0 0)
+                , Particle (V2  80  30) (V2 0 0)
+                , Particle (V2  25  70) (V2 0 0) ]
+        let pmap = make 100 50 bbox particles
+        let neighbourParticles_ = neighbourParticles pmap (0, 0)
+        Set.fromList (VU.toList neighbourParticles_) `shouldBe`
+            Set.fromList [1, 2, 4, 5, 6]
+
 listFromMap :: Int -> ParticlesMap -> [[Int]]
 listFromMap bucketCapacity ParticlesMap{..} =
     zipWith listFromBucket [0..] bucketsSizes
