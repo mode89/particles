@@ -74,5 +74,5 @@ type BucketIndex = Int
 type BucketDim = Double
 type BucketCoord = (Int, Int)
 type BucketCapacity = Int
-type BucketSize = Double
+type CellSize = Double
 type MapSize = Int

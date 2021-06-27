@@ -13,11 +13,11 @@ import Particles.Types
 
 {-# INLINE make #-}
 make :: BucketCapacity
-     -> BucketSize
+     -> CellSize
      -> BoundingBox
      -> Particles2
      -> ParticlesMap2
-make bCapacity bSize bbox@BoundingBox{..} ps = runST $ do
+make bCapacity cSize bbox@BoundingBox{..} ps = runST $ do
     bucketsSizes <- VUM.new numberOfBuckets
     bucketsStorage <- VUM.unsafeNew $ numberOfBuckets * bCapacity
     fillBuckets bucketsSizes bucketsStorage
@@ -31,11 +31,11 @@ make bCapacity bSize bbox@BoundingBox{..} ps = runST $ do
         , mapHeight = height }
     where
         numberOfBuckets = width * height
-        !width = ceiling $ bboxWidth / bSize
-        !height = ceiling $ bboxHeight / bSize
+        !width = ceiling $ bboxWidth / cSize
+        !height = ceiling $ bboxHeight / cSize
         fillBuckets sizes storage =
             VU.iforM_ ps $ \ particleIndex particle -> do
-                let bIndex = bucketIndex bbox bSize (particle ^. position)
+                let bIndex = bucketIndex bbox cSize (particle ^. position)
                 let beginningOfBucket = bCapacity * bIndex
                 let bucket = VUM.slice
                         beginningOfBucket bCapacity storage
@@ -47,13 +47,13 @@ make bCapacity bSize bbox@BoundingBox{..} ps = runST $ do
                 VUM.write sizes bIndex (bucketSize + 1)
 
 {-# INLINE bucketIndex #-}
-bucketIndex :: BoundingBox -> BucketSize -> Position -> BucketIndex
-bucketIndex BoundingBox{..} bSize pos =
+bucketIndex :: BoundingBox -> CellSize -> Position -> BucketIndex
+bucketIndex BoundingBox{..} cSize pos =
     indexFromRowAndColumn columns row column
     where
-        column = floor $ (pos ^. _x - bboxLeft) / bSize
-        row = floor $ (pos ^. _y - bboxBottom) / bSize
-        columns = ceiling $ bboxWidth / bSize
+        column = floor $ (pos ^. _x - bboxLeft) / cSize
+        row = floor $ (pos ^. _y - bboxBottom) / cSize
+        columns = ceiling $ bboxWidth / cSize
 
 {-# INLINE indexFromRowAndColumn #-}
 indexFromRowAndColumn :: Int -> Int -> Int -> BucketIndex

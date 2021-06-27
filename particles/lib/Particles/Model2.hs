@@ -22,29 +22,29 @@ initialParticles psNum bbox = runST $ do
     VU.replicateM psNum $ Model.randomParticle bbox genRef
 
 updateParticles :: BucketCapacity
-                -> BucketSize
+                -> CellSize
                 -> BoundingBox
                 -> Particles2
                 -> Particles2
-updateParticles !bCapacity !bSize !bbox ps
+updateParticles !bCapacity !cSize !bbox ps
     = VU.imap updateParticle_ ps
     where
-        updateParticle_ = updateParticle pmap ps bbox bSize
-        !pmap = Map2.make bCapacity bSize bbox ps
+        updateParticle_ = updateParticle pmap ps bbox cSize
+        !pmap = Map2.make bCapacity cSize bbox ps
 
 {-# INLINE updateParticle #-}
 updateParticle :: ParticlesMap2
                -> Particles2
                -> BoundingBox
-               -> BucketSize
+               -> CellSize
                -> ParticleIndex
                -> Particle
                -> Particle
-updateParticle pmap ps bbox bSize pIndex p
+updateParticle pmap ps bbox cSize pIndex p
     = clampToBoundingBox bbox
     . bounceOfWalls bbox
     . integrateVelocity
-    $ handleCollisions pmap ps bbox bSize pIndex p
+    $ handleCollisions pmap ps bbox cSize pIndex p
 
 {-# INLINE clampToBoundingBox #-}
 clampToBoundingBox :: BoundingBox -> Particle -> Particle
@@ -103,11 +103,11 @@ integrateVelocity particle = particle & position .~
 handleCollisions :: ParticlesMap2
                  -> Particles2
                  -> BoundingBox
-                 -> BucketSize
+                 -> CellSize
                  -> ParticleIndex
                  -> Particle
                  -> Particle
-handleCollisions pmap ps bbox bSize pIndex particle
+handleCollisions pmap ps bbox cSize pIndex particle
     = VU.foldl handleCollision_ particle
     . VU.filter (/= pIndex)
     $ Map2.neighbourParticles pmap pBucketIndex
@@ -115,7 +115,7 @@ handleCollisions pmap ps bbox bSize pIndex particle
         handleCollision_ p1 p2Index =
             let p2 = ps VU.! p2Index
             in handleCollision p2 p1
-        pBucketIndex = Map2.bucketIndex bbox bSize (particle ^. position)
+        pBucketIndex = Map2.bucketIndex bbox cSize (particle ^. position)
 
 {-# INLINE handleCollision #-}
 handleCollision :: Particle -> Particle -> Particle
@@ -148,13 +148,13 @@ handleCollision anotherParticle particleOfInterest =
 -- testHCs :: ParticlesMap2
 --         -> Particles2
 --         -> BoundingBox
---         -> BucketSize
+--         -> CellSize
 --         -> ParticleIndex
 --         -> Double
 
--- testHCs pmap ps bbox bSize pIndex =
+-- testHCs pmap ps bbox cSize pIndex =
 --     let p = ps VU.! pIndex
---         pr = handleCollisions pmap ps bbox bSize pIndex p
+--         pr = handleCollisions pmap ps bbox cSize pIndex p
 --         pos = pr ^. position
 --         vel = pr ^. velocity
 --     in norm $ pos + vel

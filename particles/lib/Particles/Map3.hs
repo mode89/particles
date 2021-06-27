@@ -24,14 +24,14 @@ newMMapUnsafe bCapacity size =
 
 {-# INLINE update #-}
 update :: BucketCapacity
-       -> BucketSize
+       -> CellSize
        -> BoundingBox
        -> Particles2
        -> MParticlesMap
        -> IO MParticlesMap
-update !bCapacity !maxBucketSize bbox@BoundingBox{..} ps prevMap = do
+update !bCapacity !cellSize bbox@BoundingBox{..} ps prevMap = do
     -- Create new map if bounding has changed
-    let mapSize = getMapSize bbox maxBucketSize
+    let mapSize = getMapSize bbox cellSize
     nextMap <- if mapSize == mapSizeM prevMap
                then return prevMap
                else newMMapUnsafe bCapacity mapSize
@@ -57,11 +57,11 @@ update !bCapacity !maxBucketSize bbox@BoundingBox{..} ps prevMap = do
 
 {-# INLINE make #-}
 make :: BucketCapacity
-     -> BucketSize
+     -> CellSize
      -> BoundingBox
      -> Particles2
      -> ParticlesMap
-make bucketCapacity maxBucketSize bbox@BoundingBox{..} ps = runST $ do
+make bucketCapacity cellSize bbox@BoundingBox{..} ps = runST $ do
     bucketsSizes <- VUM.new numberOfBuckets
     bucketsStorage <- VUM.unsafeNew $ numberOfBuckets * bucketCapacity
     fillBuckets bucketsSizes bucketsStorage
@@ -74,7 +74,7 @@ make bucketCapacity maxBucketSize bbox@BoundingBox{..} ps = runST $ do
         , mapSize = mapSize }
     where
         numberOfBuckets = mapSize * mapSize
-        mapSize = getMapSize bbox maxBucketSize
+        mapSize = getMapSize bbox cellSize
         bWidth = bboxWidth / fromIntegral mapSize
         bHeight = bboxHeight / fromIntegral mapSize
         fillBuckets sizes storage =
@@ -93,11 +93,11 @@ make bucketCapacity maxBucketSize bbox@BoundingBox{..} ps = runST $ do
 
 {-# INLINE getMapSize #-}
 getMapSize :: BoundingBox -> Double -> Int
-getMapSize BoundingBox{..} maxBucketSize
+getMapSize BoundingBox{..} cellSize
     = fromIntegral
     . nextHighestPowerOf2
     . ceiling
-    $ biggerDim / maxBucketSize
+    $ biggerDim / cellSize
     where
         biggerDim = max bboxWidth bboxHeight
 
