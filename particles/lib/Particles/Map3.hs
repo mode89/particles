@@ -12,9 +12,9 @@ import Linear.V2 (_x, _y)
 import Particles.Types hiding (ParticlesMap)
 import Particles.Map3.Types
 
-{-# INLINE newMMapUnsafe #-}
-newMMapUnsafe :: BucketCapacity -> MapSize -> IO MParticlesMap
-newMMapUnsafe bCapacity size =
+{-# INLINE unsafeNewMParticlesMap #-}
+unsafeNewMParticlesMap :: BucketCapacity -> MapSize -> IO MParticlesMap
+unsafeNewMParticlesMap bCapacity size =
     MParticlesMap <$> VUM.unsafeNew numberOfBuckets
                   <*> VUM.unsafeNew (numberOfBuckets * bCapacity)
                   <*> return bCapacity
@@ -30,11 +30,9 @@ update :: BucketCapacity
        -> MParticlesMap
        -> IO MParticlesMap
 update !bCapacity !cellSize bbox ps prevMap = do
-    -- Create new map if bounding has changed
-    let mapSize = getMapSize bbox cellSize
-    nextMap <- if mapSize == mapSizeM prevMap
-               then return prevMap
-               else newMMapUnsafe bCapacity mapSize
+    nextMap <- if needNewMap
+               then unsafeNewMParticlesMap bCapacity mapSize
+               else return prevMap
     let sizes = mapBucketsSizesM nextMap
     let storage = mapBucketsStorageM nextMap
     -- Clear map
@@ -52,6 +50,10 @@ update !bCapacity !cellSize bbox ps prevMap = do
         -- Increase size of the bucket
         VUM.write sizes bIndex (bucketSize + 1)
     return nextMap
+    where
+        mapSize = getMapSize bbox cellSize
+        needNewMap = (mapSize /= mapSizeM prevMap)
+                  || bCapacity /= mapBucketCapacityM prevMap
 
 {-# INLINE make #-}
 make :: BucketCapacity

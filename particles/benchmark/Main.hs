@@ -42,7 +42,7 @@ main = do
     let !ps1 = P.initialParticles 500 bbox
     let !ps2 = P2.initialParticles 500 bbox
     let !psSorted = sortParticles bbox ps2
-    !pmap3 <- P3.newMMapUnsafe kBucketCapacity 64
+    !pmap3 <- P3.unsafeNewMParticlesMap kBucketCapacity 64
     containers <- prepareContainers
     defaultMain [
 #ifdef __GHCJS__

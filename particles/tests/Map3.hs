@@ -74,6 +74,36 @@ map3Spec = describe "Map3" $ do
         let buckets = listFromMap 100 pmap
         buckets `shouldBe` [[], [0], [1], []]
 
+    it "update, keep previous map" $ do
+        pmap1 <- unsafeNewMParticlesMap 100 2
+        let bbox = makeBoundingBox 0 70 0 70
+        let ps = VU.fromList
+                [ Particle (V2 60 25) (V2 0 0)
+                , Particle (V2 25 60) (V2 0 0) ]
+        pmap2 <- update 100 50 bbox ps pmap1
+        mapBucketCapacityM pmap2 `shouldBe` mapBucketCapacityM pmap1
+        mapSizeM pmap2 `shouldBe` mapSizeM pmap1
+
+    it "update, change bounding box" $ do
+        pmap1 <- unsafeNewMParticlesMap 100 2
+        let bbox = makeBoundingBox 0 170 0 170
+        let ps = VU.fromList
+                [ Particle (V2 60 25) (V2 0 0)
+                , Particle (V2 25 60) (V2 0 0) ]
+        pmap2 <- update 100 50 bbox ps pmap1
+        mapBucketCapacityM pmap2 `shouldBe` mapBucketCapacityM pmap1
+        mapSizeM pmap2 `shouldBe` 4
+
+    it "update, change capacity" $ do
+        pmap1 <- unsafeNewMParticlesMap 100 2
+        let bbox = makeBoundingBox 0 70 0 70
+        let ps = VU.fromList
+                [ Particle (V2 60 25) (V2 0 0)
+                , Particle (V2 25 60) (V2 0 0) ]
+        pmap2 <- update 200 50 bbox ps pmap1
+        mapBucketCapacityM pmap2 `shouldBe` 200
+        mapSizeM pmap2 `shouldBe` mapSizeM pmap1
+
     it "neighbourBuckets" $ do
         Set.fromList (VU.toList $ neighbourBuckets 4 (1, 1)) `shouldBe`
             Set.fromList [0, 1, 2, 3, 4, 6, 8, 9, 12]
