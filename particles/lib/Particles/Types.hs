@@ -1,4 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -6,13 +8,14 @@
 
 module Particles.Types where
 
-import Control.DeepSeq (NFData, rnf, rwhnf)
+import Control.DeepSeq (NFData)
 import Control.Exception (assert)
 import Control.Lens (makeLenses)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import Data.Vector.Unboxed.Deriving (derivingUnbox)
+import GHC.Generics (Generic)
 import Linear.V2 (V2)
 
 type Position = V2 Double
@@ -20,10 +23,8 @@ type Velocity = V2 Double
 
 data Particle = Particle
     { _position :: !Position
-    , _velocity :: !Velocity } deriving (Eq, Show)
+    , _velocity :: !Velocity } deriving (Eq, Generic, NFData, Show)
 makeLenses ''Particle
-
-instance NFData Particle where rnf = rwhnf
 
 derivingUnbox "Particle"
     [t| Particle -> (V2 Double, V2 Double) |]
@@ -58,8 +59,7 @@ data ParticlesMap2 = ParticlesMap2
     , mapBucketCapacity :: !Int
     , mapWidth :: !Int
     , mapHeight :: !Int }
-
-instance NFData ParticlesMap2 where rnf = rwhnf
+    deriving (Generic, NFData)
 
 data ParticlesState = ParticlesState
     { particles :: Particles2
