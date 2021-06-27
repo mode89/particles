@@ -29,7 +29,7 @@ update :: BucketCapacity
        -> Particles2
        -> MParticlesMap
        -> IO MParticlesMap
-update !bCapacity !cellSize bbox@BoundingBox{..} ps prevMap = do
+update !bCapacity !cellSize bbox ps prevMap = do
     -- Create new map if bounding has changed
     let mapSize = getMapSize bbox cellSize
     nextMap <- if mapSize == mapSizeM prevMap
@@ -39,11 +39,9 @@ update !bCapacity !cellSize bbox@BoundingBox{..} ps prevMap = do
     let storage = mapBucketsStorageM nextMap
     -- Clear map
     VUM.set sizes 0
-    let !bWidth = bboxWidth / fromIntegral mapSize
-    let !bHeight = bboxHeight / fromIntegral mapSize
     VU.iforM_ ps $ \ particleIndex particle -> do
         let bIndex = bucketIndex $
-                bucketCoord bbox bWidth bHeight (particle ^. position)
+                bucketCoord bbox cellSize (particle ^. position)
         let beginningOfBucket = bCapacity * bIndex
         let bucket = VUM.slice
                 beginningOfBucket bCapacity storage
@@ -61,7 +59,7 @@ make :: BucketCapacity
      -> BoundingBox
      -> Particles2
      -> ParticlesMap
-make bucketCapacity cellSize bbox@BoundingBox{..} ps = runST $ do
+make bucketCapacity cellSize bbox ps = runST $ do
     bucketsSizes <- VUM.new numberOfBuckets
     bucketsStorage <- VUM.unsafeNew $ numberOfBuckets * bucketCapacity
     fillBuckets bucketsSizes bucketsStorage
@@ -75,12 +73,10 @@ make bucketCapacity cellSize bbox@BoundingBox{..} ps = runST $ do
     where
         numberOfBuckets = mapSize * mapSize
         mapSize = getMapSize bbox cellSize
-        bWidth = bboxWidth / fromIntegral mapSize
-        bHeight = bboxHeight / fromIntegral mapSize
         fillBuckets sizes storage =
             VU.iforM_ ps $ \ particleIndex particle -> do
-                let bIndex = bucketIndex $ bucketCoord bbox bWidth bHeight
-                        (particle ^. position)
+                let bIndex = bucketIndex $
+                        bucketCoord bbox cellSize (particle ^. position)
                 let beginningOfBucket = bucketCapacity * bIndex
                 let bucket = VUM.slice
                         beginningOfBucket bucketCapacity storage
@@ -112,11 +108,11 @@ nextHighestPowerOf2 x = x6 + 1 where
     x6 = x5 .|. unsafeShiftR x5 16
 
 {-# INLINE bucketCoord #-}
-bucketCoord :: BoundingBox -> Double -> Double -> Position -> BucketCoord
-bucketCoord BoundingBox{..} bWidth bHeight pos = (row, col)
+bucketCoord :: BoundingBox -> CellSize -> Position -> BucketCoord
+bucketCoord BoundingBox{..} cellSize pos = (row, col)
     where
-        col = floor $ (pos ^. _x - bboxLeft) / bWidth
-        row = floor $ (pos ^. _y - bboxBottom) / bHeight
+        col = floor $ (pos ^. _x - bboxLeft) / cellSize
+        row = floor $ (pos ^. _y - bboxBottom) / cellSize
 
 {-# INLINE bucketIndex #-}
 bucketIndex :: BucketCoord -> BucketIndex
