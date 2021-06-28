@@ -42,14 +42,15 @@ main = do
     let !ps1 = P.initialParticles 500 bbox
     let !ps2 = P2.initialParticles 500 bbox
     let !psSorted = sortParticles bbox ps2
-    !pmap3 <- P3.unsafeNewMParticlesMap kBucketCapacity 64
+    let !pmap3 = P3.make kBucketCapacity 50 bbox ps2
+    !pmapM3 <- P3.unsafeNewMParticlesMap kBucketCapacity 50
     containers <- prepareContainers
     defaultMain [
 #ifdef __GHCJS__
         env prepareDOMEnvironment bgroupDOM,
 #endif
         bgroupUpdate bbox ps1 ps2,
-        bgroupMap bbox psSorted pmap3,
+        bgroupMap bbox psSorted pmap3 pmapM3,
         bgroupContainers containers
         ]
 
@@ -63,11 +64,17 @@ bgroupUpdate !bbox !ps1 !ps2 = bgroup "updateParticles" [
         ) ps2 [1 :: Int .. 100]
     ]
 
-bgroupMap :: P.BoundingBox -> P.Particles2 -> P3.MParticlesMap -> Benchmark
-bgroupMap !bbox !ps !pmap3 = bgroup "map" [
+bgroupMap
+    :: P.BoundingBox
+    -> P.Particles2
+    -> P3.ParticlesMap
+    -> P3.MParticlesMap
+    -> Benchmark
+bgroupMap !bbox !ps !pmap3 !pmapM3 = bgroup "map" [
       bench "v2/make" $ whnf (P2.make kBucketCapacity 50 bbox) ps
     , bench "v3/make" $ whnf (P3.make kBucketCapacity 50 bbox) ps
-    , bench "v3/update" $ nfIO $ P3.update kBucketCapacity 50 bbox ps pmap3
+    , bench "v3/unsafeUpdate" $ whnf (P3.unsafeUpdate kBucketCapacity 50 bbox ps) pmap3
+    , bench "v3/update" $ nfIO $ P3.update kBucketCapacity 50 bbox ps pmapM3
     ]
 
 bgroupContainers :: ( [Double]
