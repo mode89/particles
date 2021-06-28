@@ -22,6 +22,7 @@ library
                      , Particles.Map3.Types
                      , Particles.Model
                      , Particles.Model2
+                     , Particles.Model3
                      , Particles.Types
                      , Particles.UI.GL
   build-depends:       base >=4.12
