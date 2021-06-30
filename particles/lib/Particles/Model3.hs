@@ -5,14 +5,30 @@ module Particles.Model3 where
 import Control.Monad.ST (runST)
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+import Linear.V2 (V2(..))
 import Particles.Map3 as Map3
 import Particles.Map3.Types as Map3
+import qualified Particles.Model2 as Model2
 import Particles.Types
 
 data ModelState = ModelState
     { particles :: Particles2
     , tempParticles :: Particles2
     , particlesMap :: Map3.ParticlesMap }
+
+initialState
+    :: BucketCapacity
+    -> CellSize
+    -> BoundingBox
+    -> Int
+    -> ModelState
+initialState bCapacity cSize bbox psNum =
+    ModelState
+        { particles = ps
+        , tempParticles = VU.replicate psNum $ Particle (V2 0 0) (V2 0 0)
+        , particlesMap = Map3.make bCapacity cSize bbox ps }
+    where
+        ps = Model2.initialParticles psNum bbox
 
 unsafeUpdateState
     :: BucketCapacity
