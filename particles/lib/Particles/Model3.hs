@@ -40,12 +40,12 @@ unsafeUpdateParticles bbox pmap ps psDest = runST $ do
     psDestM <- VU.unsafeThaw psDest
     VU.ifoldM_ (\ pDestOffset bIndex bSize -> do
             let bBeginning = bIndex * Map3.mapBucketCapacity pmap
-            let bParticleIndices = VU.unsafeSlice
+            let bParticleIndices = VU.slice
                     bBeginning bSize (Map3.mapBucketsStorage pmap)
             VU.iforM_ bParticleIndices $ \ pDestI pSrcI -> do
-                let p = VU.unsafeIndex ps pSrcI
+                let p = ps VU.! pSrcI
                 let pUpd = updateParticle bbox pmap ps p
-                VUM.unsafeWrite psDestM (pDestOffset + pDestI) pUpd
+                VUM.write psDestM (pDestOffset + pDestI) pUpd
             return $ pDestOffset + bSize
         ) 0 (Map3.mapBucketsSizes pmap)
     VU.unsafeFreeze psDestM
