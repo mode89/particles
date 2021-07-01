@@ -90,6 +90,7 @@ executable particles-tests
   build-depends:       base >=4.12
                      , containers
                      , hspec
+                     , HUnit-approx
                      , lens
                      , linear
                      , particles

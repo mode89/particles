@@ -3,11 +3,13 @@
 module Particles.Model3 where
 
 import Control.Monad.ST (runST)
+import Control.Lens ((^.))
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import Linear.V2 (V2(..))
 import Particles.Map3 as Map3
 import Particles.Map3.Types as Map3
+import qualified Particles.Model as Model
 import qualified Particles.Model2 as Model2
 import Particles.Types
 
@@ -73,3 +75,21 @@ updateParticle
     -> Particle
     -> Particle
 updateParticle bbox pmap ps p = undefined
+
+handleCollisions
+    :: CellSize
+    -> BoundingBox
+    -> Map3.ParticlesMap
+    -> Particles2
+    -> ParticleIndex
+    -> Particle
+    -> Particle
+handleCollisions cSize bbox pmap ps pIndex particle
+    = VU.foldl handleCollision_ particle
+    . VU.filter (/= pIndex)
+    $ Map3.neighbourParticles pmap bCoord
+    where
+        handleCollision_ p1 p2Index =
+            let p2 = ps VU.! p2Index
+            in Model.handleCollision p2 p1
+        bCoord = Map3.bucketCoord bbox cSize (particle ^. position)
