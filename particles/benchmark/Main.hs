@@ -9,11 +9,12 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
-import qualified Particles.Model as P
 import qualified Particles.Map2 as P2
-import qualified Particles.Model2 as P2
 import qualified Particles.Map3 as P3
 import qualified Particles.Map3.Types as P3
+import qualified Particles.Model as P
+import qualified Particles.Model2 as P2
+import qualified Particles.Model3 as P3
 import qualified Particles.Types as P
 
 #ifdef __GHCJS__
@@ -43,25 +44,34 @@ main = do
     let !ps2 = P2.initialParticles 500 bbox
     let !psSorted = sortParticles bbox ps2
     let !pmap3 = P3.make kBucketCapacity 50 bbox ps2
+    let !model3 = P3.initialState kBucketCapacity 50 bbox 500
     !pmapM3 <- P3.unsafeNewMParticlesMap kBucketCapacity 50
     containers <- prepareContainers
     defaultMain [
 #ifdef __GHCJS__
         env prepareDOMEnvironment bgroupDOM,
 #endif
-        bgroupUpdate bbox ps1 ps2,
+        bgroupUpdate bbox ps1 ps2 model3,
         bgroupMap bbox psSorted pmap3 pmapM3,
         bgroupContainers containers
         ]
 
-bgroupUpdate :: P.BoundingBox -> P.Particles -> P.Particles2 -> Benchmark
-bgroupUpdate !bbox !ps1 !ps2 = bgroup "updateParticles" [
-      bench "v1" $ nfIO $ foldM (\ !ps _ -> do
+bgroupUpdate
+    :: P.BoundingBox
+    -> P.Particles
+    -> P.Particles2
+    -> P3.ModelState
+    -> Benchmark
+bgroupUpdate !bbox !ps1 !ps2 !model3 = bgroup "updateParticles" [
+      bench "v3" $ nfIO $ foldM (\ model@(P3.ModelState !a !b !c)  _ -> do
+            return $ P3.unsafeUpdateState kBucketCapacity 50 bbox model
+        ) model3 [1 :: Int .. 10]
+    , bench "v2" $ nfIO $ foldM (\ !ps _ -> do
+            return $ P2.updateParticles kBucketCapacity 50 bbox ps
+        ) ps2 [1 :: Int .. 100]
+    , bench "v1" $ nfIO $ foldM (\ !ps _ -> do
             return $ P.updateParticles ps bbox
         ) ps1 [1 :: Int .. 100]
-    , bench "v2" $ nfIO $ foldM (\ !ps _ -> do
-            return $ P2.updateParticles 100 50 bbox ps
-        ) ps2 [1 :: Int .. 100]
     ]
 
 bgroupMap

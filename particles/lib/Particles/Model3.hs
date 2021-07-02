@@ -1,11 +1,15 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Particles.Model3 where
 
-import Control.Monad.ST (runST)
+import Control.DeepSeq (NFData)
 import Control.Lens ((^.))
+import Control.Monad.ST (runST)
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+import GHC.Generics (Generic)
 import Linear.V2 (V2(..))
 import Particles.Map3 as Map3
 import Particles.Map3.Types as Map3
@@ -17,6 +21,7 @@ data ModelState = ModelState
     { particles :: Particles2
     , tempParticles :: Particles2
     , particlesMap :: Map3.ParticlesMap }
+    deriving (Generic, NFData, Show)
 
 initialState
     :: BucketCapacity

@@ -13,7 +13,7 @@ data ParticlesMap = ParticlesMap
     , mapBucketsStorage :: MapBucketsStorage
     , mapBucketCapacity :: !Int
     , mapSize :: !Int }
-    deriving (Generic, NFData)
+    deriving (Generic, NFData, Show)
 
 data MParticlesMap = MParticlesMap
     { mapBucketsSizesM :: MMapBucketsSizes
