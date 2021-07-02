@@ -40,21 +40,24 @@ unsafeUpdateState
     -> ModelState
 unsafeUpdateState bCapacity cSize bbox ModelState{..} =
     ModelState
-        { particles = unsafeUpdateParticles
-            bbox newParticlesMap particles tempParticles
-        , tempParticles = particles
-        , particlesMap = newParticlesMap }
+        { particles = updatedParticles
+        , tempParticles = oldParticles
+        , particlesMap = updatedMap }
     where
-        newParticlesMap = Map3.unsafeUpdate
+        oldParticles = particles
+        updatedMap = Map3.unsafeUpdate
             bCapacity cSize bbox particles particlesMap
+        updatedParticles = unsafeUpdateParticles
+            cSize bbox updatedMap particles tempParticles
 
 unsafeUpdateParticles
-    :: BoundingBox
+    :: CellSize
+    -> BoundingBox
     -> Map3.ParticlesMap
     -> Particles2
     -> Particles2
     -> Particles2
-unsafeUpdateParticles bbox pmap ps psDest = runST $ do
+unsafeUpdateParticles cSize bbox pmap ps psDest = runST $ do
     psDestM <- VU.unsafeThaw psDest
     VU.ifoldM_ (\ pDestOffset bIndex bSize -> do
             let bBeginning = bIndex * Map3.mapBucketCapacity pmap
@@ -62,19 +65,25 @@ unsafeUpdateParticles bbox pmap ps psDest = runST $ do
                     bBeginning bSize (Map3.mapBucketsStorage pmap)
             VU.iforM_ bParticleIndices $ \ pDestI pSrcI -> do
                 let p = ps VU.! pSrcI
-                let pUpd = updateParticle bbox pmap ps p
+                let pUpd = updateParticle cSize bbox pmap ps pSrcI p
                 VUM.write psDestM (pDestOffset + pDestI) pUpd
             return $ pDestOffset + bSize
         ) 0 (Map3.mapBucketsSizes pmap)
     VU.unsafeFreeze psDestM
 
 updateParticle
-    :: BoundingBox
+    :: CellSize
+    -> BoundingBox
     -> Map3.ParticlesMap
     -> Particles2
+    -> ParticleIndex
     -> Particle
     -> Particle
-updateParticle bbox pmap ps p = undefined
+updateParticle cSize bbox pmap ps pIndex p
+    = Model.clampToBoundingBox bbox
+    . Model.bounceOfWalls bbox
+    . Model.integrateVelocity
+    $ handleCollisions cSize bbox pmap ps pIndex p
 
 handleCollisions
     :: CellSize

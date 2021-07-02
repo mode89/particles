@@ -6,6 +6,8 @@ cradle:
       component: "particles:exe:particles"
     - path: "./particles/src/v2"
       component: "particles:exe:particles2"
+    - path: "./particles/src/v3"
+      component: "particles:exe:particles3"
     - path: "./particles/tests"
       component: "particles:exe:particles-tests"
     - path: "./particles/benchmark"
