@@ -79,6 +79,14 @@ data CanvasSize = CanvasSize
 kParticlesNum :: Int
 kParticlesNum = 1000
 
+{-# INLINE kMapBucketCapacity #-}
+kMapBucketCapacity :: Int
+kMapBucketCapacity = 16
+
+{-# INLINE kMapCellSize #-}
+kMapCellSize :: Double
+kMapCellSize = 31
+
 main :: IO ()
 main = mainWidgetWithCss style $ do
     window <- DOM.currentWindowUnchecked
@@ -122,8 +130,8 @@ updateModel
 updateModel model bbox
     = Just
     $ maybe
-        (Model3.initialState 8 31 bbox kParticlesNum)
-        (Model3.unsafeUpdateState 8 31 bbox)
+        (Model3.initialState kMapBucketCapacity kMapCellSize bbox kParticlesNum)
+        (Model3.unsafeUpdateState kMapBucketCapacity kMapCellSize bbox)
         model
 
 getGLContext :: HTMLCanvasElement -> JSM GLContext
