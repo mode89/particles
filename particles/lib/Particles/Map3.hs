@@ -156,13 +156,13 @@ encodeMorton16 x y = xS .|. unsafeShiftL yS 1 where
 
 {-# INLINE neighbourBuckets #-}
 neighbourBuckets :: MapSize -> BucketCoord -> VU.Vector BucketIndex
-neighbourBuckets mapSize (bRow, bCol)
+neighbourBuckets mapSize (!bRow, !bCol)
     = VU.map bucketIndex
     . VU.filter insideBoundingBox
     . VU.map absoluteBucketCoord
     $ neighbourOffsets
     where
-        insideBoundingBox (r, c)
+        insideBoundingBox (!r, !c)
              = (r >= 0)
             && (r < mapSize)
             && (c >= 0)

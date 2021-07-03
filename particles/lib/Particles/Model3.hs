@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -5,12 +6,14 @@
 module Particles.Model3 where
 
 import Control.DeepSeq (NFData)
-import Control.Lens ((^.))
+import Control.Lens ((&), (^.), (.~))
 import Control.Monad.ST (runST)
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import GHC.Generics (Generic)
-import Linear.V2 (V2(..))
+import Linear.Metric (dot, norm)
+import Linear.V2 (V2(..), _x, _y)
+import Linear.Vector ((^*))
 import Particles.Map3 as Map3
 import Particles.Map3.Types as Map3
 import qualified Particles.Model as Model
@@ -55,6 +58,7 @@ unsafeUpdateState bCapacity cSize bbox ModelState{..} =
         updatedParticles = unsafeUpdateParticles
             cSize bbox updatedMap particles tempParticles
 
+{-# INLINE unsafeUpdateParticles #-}
 unsafeUpdateParticles
     :: CellSize
     -> BoundingBox
@@ -62,7 +66,7 @@ unsafeUpdateParticles
     -> Particles2
     -> Particles2
     -> Particles2
-unsafeUpdateParticles cSize bbox pmap ps psDest = runST $ do
+unsafeUpdateParticles !cSize bbox pmap ps psDest = runST $ do
     psDestM <- VU.unsafeThaw psDest
     VU.ifoldM_ (\ pDestOffset bIndex bSize -> do
             let bBeginning = bIndex * Map3.mapBucketCapacity pmap
@@ -76,6 +80,7 @@ unsafeUpdateParticles cSize bbox pmap ps psDest = runST $ do
         ) 0 (Map3.mapBucketsSizes pmap)
     VU.unsafeFreeze psDestM
 
+{-# INLINE updateParticle #-}
 updateParticle
     :: CellSize
     -> BoundingBox
@@ -84,12 +89,66 @@ updateParticle
     -> ParticleIndex
     -> Particle
     -> Particle
-updateParticle cSize bbox pmap ps pIndex p
-    = Model.clampToBoundingBox bbox
-    . Model.bounceOfWalls bbox
-    . Model.integrateVelocity
-    $ handleCollisions cSize bbox pmap ps pIndex p
+updateParticle cSize bbox pmap ps pIndex
+    = clampToBoundingBox bbox
+    . bounceOfWalls bbox
+    . integrateVelocity
+    . handleCollisions cSize bbox pmap ps pIndex
 
+{-# INLINE clampToBoundingBox #-}
+clampToBoundingBox :: BoundingBox -> Particle -> Particle
+clampToBoundingBox BoundingBox{..} = clampLeft
+                                   . clampRight
+                                   . clampBottom
+                                   . clampTop
+    where
+        clampLeft p =
+            if p ^. (position . _x) < (bboxLeft + Model.particleRadius)
+            then p & (position . _x) .~ (bboxLeft + Model.particleRadius)
+            else p
+        clampRight p =
+            if p ^. (position . _x) > (bboxRight - Model.particleRadius)
+            then p & (position . _x) .~ (bboxRight - Model.particleRadius)
+            else p
+        clampBottom p =
+            if p ^. (position . _y) < (bboxBottom + Model.particleRadius)
+            then p & (position . _y) .~ (bboxBottom + Model.particleRadius)
+            else p
+        clampTop p =
+            if p ^. (position . _y) > (bboxTop - Model.particleRadius)
+            then p & (position . _y) .~ (bboxTop - Model.particleRadius)
+            else p
+
+{-# INLINE bounceOfWalls #-}
+bounceOfWalls :: BoundingBox -> Particle -> Particle
+bounceOfWalls BoundingBox{..} = bounceLeft
+                              . bounceRight
+                              . bounceBottom
+                              . bounceTop
+    where
+        bounceLeft p =
+            if p ^. (position . _x) < (bboxLeft + Model.particleRadius)
+            then p & (velocity . _x) .~ abs (p ^. (velocity . _x))
+            else p
+        bounceRight p =
+            if p ^. (position . _x) > (bboxRight - Model.particleRadius)
+            then p & (velocity . _x) .~ (- (abs $ p ^. (velocity . _x)))
+            else p
+        bounceBottom p =
+            if p ^. (position . _y) < (bboxBottom + Model.particleRadius)
+            then p & (velocity . _y) .~ abs (p ^. (velocity . _y))
+            else p
+        bounceTop p =
+            if p ^. (position . _y) > (bboxTop - Model.particleRadius)
+            then p & (velocity . _y) .~ (- (abs $ p ^. (velocity . _y)))
+            else p
+
+{-# INLINE integrateVelocity #-}
+integrateVelocity :: Particle -> Particle
+integrateVelocity particle = particle & position .~
+    ( particle ^. position + particle ^. velocity * Model.tickInterval )
+
+{-# INLINE handleCollisions #-}
 handleCollisions
     :: CellSize
     -> BoundingBox
@@ -99,11 +158,31 @@ handleCollisions
     -> Particle
     -> Particle
 handleCollisions cSize bbox pmap ps pIndex particle
-    = VU.foldl handleCollision_ particle
+    = VU.foldl' handleCollision_ particle
     . VU.filter (/= pIndex)
     $ Map3.neighbourParticles pmap bCoord
     where
         handleCollision_ p1 p2Index =
             let p2 = ps VU.! p2Index
-            in Model.handleCollision p2 p1
+            in handleCollision p2 p1
         bCoord = Map3.bucketCoord bbox cSize (particle ^. position)
+
+{-# INLINE handleCollision #-}
+handleCollision :: Particle -> Particle -> Particle
+handleCollision anotherParticle particleOfInterest =
+    if collision
+    then particleOfInterest
+        & velocity .~ (v1 - dp ^* (dot_dv_dp / (norm_dp ** 2)))
+    else particleOfInterest
+    where
+        collision = onCollistionDistance && movingTowardsEachOther
+        onCollistionDistance = norm_dp < 2 * Model.particleRadius
+        movingTowardsEachOther = dot_dv_dp < 0
+        norm_dp = norm dp
+        dot_dv_dp = dot dv dp
+        dv = v1 - v2
+        dp = p1 - p2
+        v1 = particleOfInterest ^. velocity
+        p1 = particleOfInterest ^. position
+        v2 = anotherParticle ^. velocity
+        p2 = anotherParticle ^. position
