@@ -69,6 +69,7 @@ data GLObjects = GLObjects
     , projectionUniform :: WebGLUniformLocation }
 
 type ProjectionMatrix = M44 Double
+type ProjectionMatrixList = [Double]
 
 data CanvasSize = CanvasSize
     { width :: Int
@@ -94,11 +95,12 @@ main = mainWidgetWithCss style $ do
     (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize canvasRaw eTick
     let bProjectionMatrix =
             fmap projectionMatrixFromCanvasSize <$> bCanvasSize
+    let bProjectionMatrixList = fmap listFromMatrix <$> bProjectionMatrix
     let bBoundingBox = fmap boundingBoxFromCanvasSize <$> bCanvasSize
     bModel <- RX.accumB updateModel Nothing
         $ RX.tagMaybe bBoundingBox eTick
     let bParticles = fmap Model3.particles <$> bModel
-    let bRenderingParams = RX.ffor2 bParticles bProjectionMatrix $
+    let bRenderingParams = RX.ffor2 bParticles bProjectionMatrixList $
             \ps pm -> (,) <$> ps <*> pm
     let eRender = RX.tagMaybe bRenderingParams eTick
 
@@ -206,8 +208,8 @@ fragmentShaderSource = L.intercalate "\n"
 render :: GLContext
        -> GLObjects
        -> Performance
-       -> (Particles2, ProjectionMatrix)
        -> Buffer.MutableBuffer
+       -> (Particles2, ProjectionMatrixList)
        -> JSM ()
 render GLContext{..}
        GLObjects{..}
@@ -215,8 +217,7 @@ render GLContext{..}
        particlesTransformationsStagingBuffer
        (particles, projectionMatrix) = do
     Performance.mark performance ("render-begin" :: Text)
-    GL.uniformMatrix4fv gl (Just projectionUniform) False $
-        listFromMatrix projectionMatrix
+    GL.uniformMatrix4fv gl (Just projectionUniform) False projectionMatrix
     GL.clear gl GL.COLOR_BUFFER_BIT
 
     GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
@@ -298,6 +299,7 @@ particleGeometryData = concat_ $ center : perimeter where
 particleGeometryNumSlices :: Int
 particleGeometryNumSlices = 7
 
+{-# INLINE listFromMatrix #-}
 listFromMatrix :: M44 a -> [a]
 listFromMatrix = concatMap Foldable.toList . Foldable.toList
 
