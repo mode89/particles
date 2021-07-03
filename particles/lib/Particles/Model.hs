@@ -16,7 +16,7 @@ import System.Random (mkStdGen, randomR, StdGen)
 
 {-# INLINE maxInitialSpeed #-}
 maxInitialSpeed :: Double
-maxInitialSpeed = 400
+maxInitialSpeed = 100
 
 {-# INLINE maxParticlesNum #-}
 maxParticlesNum :: Int
