@@ -14,6 +14,7 @@ import qualified Data.List as L
 import Data.Text (Text)
 import qualified Data.Vector.Unboxed as VU
 import Data.Witherable (catMaybes)
+import qualified GHCJS.Buffer as Buffer
 import qualified GHCJS.DOM as DOM
 import GHCJS.DOM.ANGLEInstancedArrays
     ( drawArraysInstancedANGLE
@@ -24,6 +25,7 @@ import qualified GHCJS.DOM.Performance as Performance
 import qualified GHCJS.DOM.GlobalPerformance as GlobalPerformance
 import GHCJS.DOM.Types
     ( ANGLEInstancedArrays(..)
+    , ArrayBuffer(..)
     , GLenum
     , GObject(..)
     , HTMLCanvasElement(..)
@@ -37,7 +39,14 @@ import GHCJS.DOM.Types
     , WebGLShader
     , WebGLUniformLocation )
 import qualified GHCJS.DOM.WebGLRenderingContextBase as GL
-import Language.Javascript.JSaddle (JSM, liftJSM, MonadJSM)
+import JavaScript.TypedArray.Internal (setIndex)
+import Language.Javascript.JSaddle
+    ( fromJSVal
+    , ghcjsPure
+    , JSM
+    , jsval
+    , liftJSM
+    , MonadJSM )
 import Linear.Matrix ((!*!), identity, mkTransformationMat, M44, transpose)
 import Linear.Projection (ortho)
 import Linear.V2 (_x, _y)
@@ -65,6 +74,10 @@ data CanvasSize = CanvasSize
     { width :: Int
     , height :: Int } deriving (Eq, Show)
 
+{-# INLINE kParticlesNum #-}
+kParticlesNum :: Int
+kParticlesNum = 1000
+
 main :: IO ()
 main = mainWidgetWithCss style $ do
     window <- DOM.currentWindowUnchecked
@@ -74,6 +87,8 @@ main = mainWidgetWithCss style $ do
         _element_raw canvasEl
     glContext <- liftJSM $ getGLContext canvasRaw
     glObjects <- liftJSM $ initGL glContext
+    particlesTransformationsStagingBuffer <-
+        liftJSM $ Buffer.create $ kParticlesNum * 8
 
     eTick <- RX.tickLossyFromPostBuildTime Model.tickInterval
     (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize canvasRaw eTick
@@ -91,7 +106,9 @@ main = mainWidgetWithCss style $ do
         $ liftJSM . updateViewportSize glContext
             <$> catMaybes eCanvasSizeChanged
     RX.performEvent_
-        $ liftJSM . render glContext glObjects performance
+        $ liftJSM
+        . render glContext glObjects performance
+            particlesTransformationsStagingBuffer
             <$> eRender
 
     return ()
@@ -103,8 +120,8 @@ updateModel
 updateModel model bbox
     = Just
     $ maybe
-        (Model3.initialState 100 50 bbox 500)
-        (Model3.unsafeUpdateState 100 50 bbox)
+        (Model3.initialState 8 31 bbox kParticlesNum)
+        (Model3.unsafeUpdateState 8 31 bbox)
         model
 
 getGLContext :: HTMLCanvasElement -> JSM GLContext
@@ -190,10 +207,12 @@ render :: GLContext
        -> GLObjects
        -> Performance
        -> (Particles2, ProjectionMatrix)
+       -> Buffer.MutableBuffer
        -> JSM ()
 render GLContext{..}
        GLObjects{..}
        performance
+       particlesTransformationsStagingBuffer
        (particles, projectionMatrix) = do
     Performance.mark performance ("render-begin" :: Text)
     GL.uniformMatrix4fv gl (Just projectionUniform) False $
@@ -202,7 +221,17 @@ render GLContext{..}
 
     GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
     Performance.mark performance ("render-bufferSubDataFloat-begin" :: Text)
-    bufferSubDataFloat gl GL.ARRAY_BUFFER 0 translations
+    stageBufferF32 <- ghcjsPure $
+            Buffer.getFloat32Array particlesTransformationsStagingBuffer
+    stageBufferJS <- ghcjsPure . jsval $ stageBufferF32
+    stageBuffer <- fromJSVal stageBufferJS :: JSM (Maybe ArrayBuffer)
+    VU.iforM_ particles $ \ pIndex p -> do
+        let offset = pIndex * 2
+        let px = p ^. position . _x
+        let py = p ^. position . _y
+        setIndex offset px stageBufferF32
+        setIndex (offset + 1) py stageBufferF32
+    GL.bufferSubData gl GL.ARRAY_BUFFER 0 stageBuffer
     Performance.mark performance ("render-bufferSubDataFloat-end" :: Text)
     GL.bindBuffer gl GL.ARRAY_BUFFER Nothing
 
@@ -223,10 +252,6 @@ render GLContext{..}
         ("render-drawArraysInstancedANGLE" :: Text)
         (Just ("render-drawArraysInstancedANGLE-begin" :: Text))
         (Just ("render-end" :: Text))
-    where
-        translations = [n | p <- VU.toList particles, n <- [ x p, y p ]]
-        x p = p ^. (position . _x)
-        y p = p ^. (position . _y)
 
 buildShader :: WebGLRenderingContext -> GLenum -> String -> JSM WebGLShader
 buildShader gl shaderType sourceCode = do
