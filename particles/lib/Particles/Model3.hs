@@ -55,7 +55,7 @@ unsafeUpdateState bCapacity cSize bbox ModelState{..} =
         oldParticles = particles
         updatedMap = Map3.unsafeUpdate
             bCapacity cSize bbox particles particlesMap
-        updatedParticles = unsafeUpdateParticles
+        !updatedParticles = unsafeUpdateParticles
             cSize bbox updatedMap particles tempParticles
 
 {-# INLINE unsafeUpdateParticles #-}

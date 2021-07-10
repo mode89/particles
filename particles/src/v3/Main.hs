@@ -130,7 +130,7 @@ updateModel
     -> Maybe Model3.ModelState
 updateModel model bbox
     = Just
-    $ maybe
+    $! maybe
         (Model3.initialState kMapBucketCapacity kMapCellSize bbox kParticlesNum)
         (Model3.unsafeUpdateState kMapBucketCapacity kMapCellSize bbox)
         model
