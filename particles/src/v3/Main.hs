@@ -100,21 +100,22 @@ main = mainWidgetWithCss style $ do
         liftJSM $ Buffer.create $ kParticlesNum * 8
 
     eTick <- RX.tickLossyFromPostBuildTime Model.tickInterval
-    (bCanvasSize, eCanvasSizeChanged) <- trackCanvasSize canvasRaw eTick
-    let bProjectionMatrix =
-            fmap projectionMatrixFromCanvasSize <$> bCanvasSize
-    let bProjectionMatrixList = fmap listFromMatrix <$> bProjectionMatrix
-    let bBoundingBox = fmap boundingBoxFromCanvasSize <$> bCanvasSize
-    bModel <- RX.accumB updateModel Nothing
-        $ RX.tagMaybe bBoundingBox eTick
-    let bParticles = fmap Model3.particles <$> bModel
-    let bRenderingParams = RX.ffor2 bParticles bProjectionMatrixList $
-            \ps pm -> (,) <$> ps <*> pm
-    let eRender = RX.tagMaybe bRenderingParams eTick
+    (dCanvasSize, eCanvasSize) <- trackCanvasSize canvasRaw eTick
+    let dProjectionMatrix =
+            fmap projectionMatrixFromCanvasSize <$> dCanvasSize
+    let dProjectionMatrixList = fmap listFromMatrix <$> dProjectionMatrix
+    let dBoundingBox = fmap boundingBoxFromCanvasSize <$> dCanvasSize
+    dModel <- RX.accumDyn updateModel Nothing
+        $ catMaybes $ RX.tagPromptlyDyn dBoundingBox eTick
+    let dParticles = fmap Model3.particles <$> dModel
+    let dRenderingParams =
+            RX.ffor2 dParticles dProjectionMatrixList $
+                \ps pm -> (,) <$> ps <*> pm
+    let eRender = catMaybes $ RX.tagPromptlyDyn dRenderingParams eTick
 
     RX.performEvent_
         $ liftJSM . updateViewportSize glContext
-            <$> catMaybes eCanvasSizeChanged
+            <$> catMaybes eCanvasSize
     RX.performEvent_
         $ liftJSM
         . render glContext glObjects performance
@@ -321,11 +322,12 @@ trackCanvasSize :: ( Monad m
                    , RX.TriggerEvent t m )
                 => HTMLCanvasElement
                 -> RX.Event t a
-                -> m ( RX.Behavior t (Maybe CanvasSize)
+                -> m ( RX.Dynamic t (Maybe CanvasSize)
                      , RX.Event t (Maybe CanvasSize) )
 trackCanvasSize canvas event = do
-    (eSizeChanged, triggerSizeChanged) <- RX.newTriggerEvent
-    bSize <- RX.hold Nothing eSizeChanged
+    (eSize, triggerSize) <- RX.newTriggerEvent
+    dSize <- RX.holdDyn Nothing eSize
+    let bSize = RX.current dSize
     let performer = \_ -> do
             currentSize <- RX.sample bSize
             liftJSM $ do
@@ -334,7 +336,7 @@ trackCanvasSize canvas event = do
                 let triggerEvent = do
                         Canvas.setWidth canvas $ fromIntegral width'
                         Canvas.setHeight canvas $ fromIntegral height'
-                        liftIO $ triggerSizeChanged $
+                        liftIO $ triggerSize $
                             Just $ CanvasSize width' height'
                         return ()
                 case currentSize of
@@ -343,7 +345,7 @@ trackCanvasSize canvas event = do
                             triggerEvent
                     Nothing -> triggerEvent
     RX.performEvent_ $ performer <$> event
-    return (bSize, eSizeChanged)
+    return (dSize, eSize)
 
 updateViewportSize :: GLContext -> CanvasSize -> JSM ()
 updateViewportSize GLContext{..} CanvasSize{..} =
