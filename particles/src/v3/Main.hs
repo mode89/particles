@@ -225,11 +225,7 @@ render GLContext{..}
        particlesTransformationsStagingBuffer
        (particles, projectionMatrix) = do
     Performance.mark performance ("render-begin" :: Text)
-    GL.uniformMatrix4fv gl (Just projectionUniform) False projectionMatrix
-    GL.clear gl GL.COLOR_BUFFER_BIT
 
-    GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
-    Performance.mark performance ("render-bufferSubDataFloat-begin" :: Text)
     stageBufferF32 <- ghcjsPure $
             Buffer.getFloat32Array particlesTransformationsStagingBuffer
     stageBufferJS <- ghcjsPure . jsval $ stageBufferF32
@@ -240,6 +236,12 @@ render GLContext{..}
         let py = p ^. position . _y
         setIndex offset px stageBufferF32
         setIndex (offset + 1) py stageBufferF32
+
+    GL.uniformMatrix4fv gl (Just projectionUniform) False projectionMatrix
+    GL.clear gl GL.COLOR_BUFFER_BIT
+
+    GL.bindBuffer gl GL.ARRAY_BUFFER $ Just translationBuffer
+    Performance.mark performance ("render-bufferSubDataFloat-begin" :: Text)
     GL.bufferSubData gl GL.ARRAY_BUFFER 0 stageBuffer
     Performance.mark performance ("render-bufferSubDataFloat-end" :: Text)
     GL.bindBuffer gl GL.ARRAY_BUFFER Nothing
