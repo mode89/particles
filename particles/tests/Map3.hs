@@ -7,7 +7,7 @@ import qualified Data.Set as Set
 import qualified Data.Vector.Unboxed as VU
 import Linear.V2 (V2(..))
 import Particles.Map3
-import Particles.Map3.Types
+import Particles.Map3.Types as M3
 import Particles.Types hiding (ParticlesMap)
 import Test.Hspec
 
@@ -75,34 +75,36 @@ map3Spec = describe "Map3" $ do
         buckets `shouldBe` [[], [0], [1], []]
 
     it "update, keep previous map" $ do
-        pmap1 <- unsafeNewMParticlesMap 100 2
-        let bbox = makeBoundingBox 0 70 0 70
         let ps = VU.fromList
-                [ Particle (V2 60 25) (V2 0 0)
-                , Particle (V2 25 60) (V2 0 0) ]
-        pmap2 <- update 100 50 bbox ps pmap1
-        mapBucketCapacityM pmap2 `shouldBe` mapBucketCapacityM pmap1
-        mapSizeM pmap2 `shouldBe` mapSizeM pmap1
+                [ Particle (V2 35 25) (V2 0 0)
+                , Particle (V2 25 15) (V2 0 0) ]
+        let bbox1 = makeBoundingBox 0 100 0 100
+        let pmap1 = make 100 50 bbox1 ps
+        let bbox2 = makeBoundingBox 0 70 0 70
+        let pmap2 = unsafeUpdate 100 50 bbox2 ps pmap1
+        M3.mapBucketCapacity pmap2 `shouldBe` M3.mapBucketCapacity pmap1
+        mapSize pmap2 `shouldBe` mapSize pmap1
 
     it "update, change bounding box" $ do
-        pmap1 <- unsafeNewMParticlesMap 100 2
-        let bbox = makeBoundingBox 0 170 0 170
         let ps = VU.fromList
-                [ Particle (V2 60 25) (V2 0 0)
-                , Particle (V2 25 60) (V2 0 0) ]
-        pmap2 <- update 100 50 bbox ps pmap1
-        mapBucketCapacityM pmap2 `shouldBe` mapBucketCapacityM pmap1
-        mapSizeM pmap2 `shouldBe` 4
+                [ Particle (V2 35 25) (V2 0 0)
+                , Particle (V2 25 15) (V2 0 0) ]
+        let bbox1 = makeBoundingBox 0 100 0 100
+        let pmap1 = make 100 50 bbox1 ps
+        let bbox2 = makeBoundingBox 0 110 0 100
+        let pmap2 = unsafeUpdate 100 50 bbox2 ps pmap1
+        M3.mapBucketCapacity pmap2 `shouldBe` M3.mapBucketCapacity pmap1
+        mapSize pmap2 `shouldNotBe` mapSize pmap1
 
     it "update, change capacity" $ do
-        pmap1 <- unsafeNewMParticlesMap 100 2
-        let bbox = makeBoundingBox 0 70 0 70
         let ps = VU.fromList
-                [ Particle (V2 60 25) (V2 0 0)
-                , Particle (V2 25 60) (V2 0 0) ]
-        pmap2 <- update 200 50 bbox ps pmap1
-        mapBucketCapacityM pmap2 `shouldBe` 200
-        mapSizeM pmap2 `shouldBe` mapSizeM pmap1
+                [ Particle (V2 35 25) (V2 0 0)
+                , Particle (V2 25 15) (V2 0 0) ]
+        let bbox = makeBoundingBox 0 100 0 100
+        let pmap1 = make 100 50 bbox ps
+        let pmap2 = unsafeUpdate 200 50 bbox ps pmap1
+        M3.mapBucketCapacity pmap2 `shouldBe` 200
+        mapSize pmap2 `shouldBe` mapSize pmap1
 
     it "neighbourBuckets" $ do
         Set.fromList (VU.toList $ neighbourBuckets 4 (1, 1)) `shouldBe`

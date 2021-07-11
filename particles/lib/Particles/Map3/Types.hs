@@ -14,10 +14,3 @@ data ParticlesMap = ParticlesMap
     , mapBucketCapacity :: !Int
     , mapSize :: !Int }
     deriving (Generic, NFData, Show)
-
-data MParticlesMap = MParticlesMap
-    { mapBucketsSizesM :: MMapBucketsSizes
-    , mapBucketsStorageM :: MMapBucketsStorage
-    , mapBucketCapacityM :: !Int
-    , mapSizeM :: !Int }
-    deriving (Generic, NFData)

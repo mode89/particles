@@ -12,6 +12,20 @@ import Linear.V2 (_x, _y)
 import Particles.Types
 import Particles.Map3.Types as M3
 
+{-# INLINE make #-}
+make
+    :: BucketCapacity
+    -> CellSize
+    -> BoundingBox
+    -> Particles2
+    -> M3.ParticlesMap
+make bCapacity cSize bbox ps = unsafeUpdate bCapacity cSize bbox ps $
+    M3.ParticlesMap
+        { mapBucketsSizes = VU.empty
+        , mapBucketsStorage = VU.empty
+        , mapBucketCapacity = 0
+        , mapSize = 0 }
+
 {-# INLINE unsafeUpdate #-}
 unsafeUpdate
     :: BucketCapacity
@@ -29,7 +43,7 @@ unsafeUpdate !bCapacity !cSize bbox ps pmapPrev = runST $ do
                  <*> VU.unsafeThaw (M3.mapBucketsStorage pmapPrev)
     -- Clear map
     VUM.set sizes 0
-    fillBuckets bCapacity cSize bbox ps sizes storage
+    fillBuckets sizes storage
     frozenSizes <- VU.unsafeFreeze sizes
     frozenStorage <- VU.unsafeFreeze storage
     return $ M3.ParticlesMap
@@ -42,74 +56,19 @@ unsafeUpdate !bCapacity !cSize bbox ps pmapPrev = runST $ do
                   || (bCapacity /= M3.mapBucketCapacity pmapPrev)
         numberOfBuckets = mapSize * mapSize
         mapSize = getMapSize bbox cSize
-
-{-# INLINE unsafeNewMParticlesMap #-}
-unsafeNewMParticlesMap :: BucketCapacity -> MapSize -> IO MParticlesMap
-unsafeNewMParticlesMap bCapacity size =
-    MParticlesMap <$> VUM.unsafeNew numberOfBuckets
-                  <*> VUM.unsafeNew (numberOfBuckets * bCapacity)
-                  <*> return bCapacity
-                  <*> return size
-    where
-        numberOfBuckets = size * size
-
-{-# INLINE update #-}
-update :: BucketCapacity
-       -> CellSize
-       -> BoundingBox
-       -> Particles2
-       -> MParticlesMap
-       -> IO MParticlesMap
-update !bCapacity !cellSize bbox ps prevMap = do
-    nextMap <- if needNewMap
-               then unsafeNewMParticlesMap bCapacity mapSize
-               else return prevMap
-    let sizes = mapBucketsSizesM nextMap
-    let storage = mapBucketsStorageM nextMap
-    -- Clear map
-    VUM.set sizes 0
-    fillBuckets bCapacity cellSize bbox ps sizes storage
-    return nextMap
-    where
-        mapSize = getMapSize bbox cellSize
-        needNewMap = (mapSize /= mapSizeM prevMap)
-                  || bCapacity /= mapBucketCapacityM prevMap
-
-{-# INLINE make #-}
-make :: BucketCapacity
-     -> CellSize
-     -> BoundingBox
-     -> Particles2
-     -> M3.ParticlesMap
-make bucketCapacity cellSize bbox ps = runST $ do
-    bucketsSizes <- VUM.new numberOfBuckets
-    bucketsStorage <- VUM.unsafeNew $ numberOfBuckets * bucketCapacity
-    fillBuckets bucketCapacity cellSize bbox ps bucketsSizes bucketsStorage
-    frozenSizes <- VU.unsafeFreeze bucketsSizes
-    frozenStorage <- VU.unsafeFreeze bucketsStorage
-    return $ M3.ParticlesMap
-        { mapBucketsSizes = frozenSizes
-        , mapBucketsStorage = frozenStorage
-        , mapBucketCapacity = bucketCapacity
-        , mapSize = mapSize }
-    where
-        numberOfBuckets = mapSize * mapSize
-        mapSize = getMapSize bbox cellSize
-
-{-# INLINE fillBuckets #-}
-fillBuckets bCapacity cSize bbox ps sizes storage =
-    VU.iforM_ ps $ \ pIndex particle -> do
-        let bIndex = bucketIndex $
-                bucketCoord bbox cSize (particle ^. position)
-        let beginningOfBucket = bCapacity * bIndex
-        let bucket = VUM.slice
-                beginningOfBucket bCapacity storage
-        bSize <- VUM.read sizes bIndex
-        let particleOffset = bSize
-        -- Put particle into bucket
-        VUM.write bucket particleOffset pIndex
-        -- Increase size of the bucket
-        VUM.write sizes bIndex (bSize + 1)
+        fillBuckets sizes storage =
+            VU.iforM_ ps $ \ pIndex particle -> do
+                let bIndex = bucketIndex $
+                        bucketCoord bbox cSize (particle ^. position)
+                let beginningOfBucket = bCapacity * bIndex
+                let bucket = VUM.slice
+                        beginningOfBucket bCapacity storage
+                bSize <- VUM.read sizes bIndex
+                let particleOffset = bSize
+                -- Put particle into bucket
+                VUM.write bucket particleOffset pIndex
+                -- Increase size of the bucket
+                VUM.write sizes bIndex (bSize + 1)
 
 {-# INLINE getMapSize #-}
 getMapSize :: BoundingBox -> Double -> Int
