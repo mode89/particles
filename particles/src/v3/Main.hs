@@ -99,7 +99,14 @@ main = mainWidgetWithCss style $ do
     particlesTransformationsStagingBuffer <-
         liftJSM $ Buffer.create $ kParticlesNum * 8
 
-    eTick <- RX.tickLossyFromPostBuildTime Model.tickInterval
+    (eAnimationFrame, triggerAnimationFrame) <- RX.newTriggerEvent
+    let animationFrameCallback = \ timestamp -> do
+            _ <- DOM.inAnimationFrame' animationFrameCallback
+            liftIO $ triggerAnimationFrame timestamp
+            return ()
+    _ <- liftJSM $ DOM.inAnimationFrame' animationFrameCallback
+    let eTick = eAnimationFrame
+
     (dCanvasSize, eCanvasSize) <- trackCanvasSize canvasRaw eTick
     let dProjectionMatrix =
             fmap projectionMatrixFromCanvasSize <$> dCanvasSize
