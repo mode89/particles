@@ -80,7 +80,7 @@ map3Spec = describe "Map3" $ do
                 , Particle (V2 25 15) (V2 0 0) ]
         let bbox1 = makeBoundingBox 0 100 0 100
         let pmap1 = make 100 50 bbox1 ps
-        let bbox2 = makeBoundingBox 0 70 0 70
+        let bbox2 = makeBoundingBox 0 40 0 40
         let pmap2 = unsafeUpdate 100 50 bbox2 ps pmap1
         M3.mapBucketCapacity pmap2 `shouldBe` M3.mapBucketCapacity pmap1
         mapSize pmap2 `shouldBe` mapSize pmap1

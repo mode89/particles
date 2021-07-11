@@ -52,10 +52,11 @@ unsafeUpdate !bCapacity !cSize bbox ps pmapPrev = runST $ do
         , mapBucketCapacity = bCapacity
         , mapSize = mapSize }
     where
-        needNewMap = (mapSize /= M3.mapSize pmapPrev)
-                  || (bCapacity /= M3.mapBucketCapacity pmapPrev)
+        needNewMap = (requiredMapSize > M3.mapSize pmapPrev)
+                  || (bCapacity > M3.mapBucketCapacity pmapPrev)
+        requiredMapSize = getMapSize bbox cSize
         numberOfBuckets = mapSize * mapSize
-        mapSize = getMapSize bbox cSize
+        !mapSize = max requiredMapSize (M3.mapSize pmapPrev)
         fillBuckets sizes storage =
             VU.iforM_ ps $ \ pIndex particle -> do
                 let bIndex = bucketIndex $
