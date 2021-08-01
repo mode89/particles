@@ -10,6 +10,7 @@ import Control.Lens ((&), (^.), (.~))
 import Control.Monad.ST (runST)
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+import Debug.Trace
 import GHC.Generics (Generic)
 import Linear.Metric (dot, norm)
 import Linear.V2 (V2(..), _x, _y)
@@ -19,6 +20,7 @@ import Particles.Map3.Types as Map3
 import qualified Particles.Model as Model
 import qualified Particles.Model2 as Model2
 import Particles.Types
+import System.Random (mkStdGen, randomR, StdGen)
 
 data ModelState = ModelState
     { particles :: Particles2
@@ -170,12 +172,13 @@ handleCollisions cSize bbox pmap ps pIndex particle
 {-# INLINE handleCollision #-}
 handleCollision :: Particle -> Particle -> Particle
 handleCollision anotherParticle particleOfInterest =
-    if collision
+    if onCollistionDistance
     then particleOfInterest
         & velocity .~ (v1 - dp ^* (dot_dv_dp / (norm_dp ** 2)))
+        & position .~ repulse Model.particleRadius p1 p2
     else particleOfInterest
     where
-        collision = onCollistionDistance && movingTowardsEachOther
+        collision = onCollistionDistance
         onCollistionDistance = norm_dp < 2 * Model.particleRadius
         movingTowardsEachOther = dot_dv_dp < 0
         norm_dp = norm dp
@@ -186,3 +189,11 @@ handleCollision anotherParticle particleOfInterest =
         p1 = particleOfInterest ^. position
         v2 = anotherParticle ^. velocity
         p2 = anotherParticle ^. position
+
+{-# INLINE repulse #-}
+repulse :: Double -> Position -> Position -> Position
+repulse pRadius p1 p2 = p1 + delta where
+    delta = distV ^* (overlap * 0.5 / dist)
+    distV = p1 - p2
+    overlap = 2 * pRadius - dist
+    dist = norm distV

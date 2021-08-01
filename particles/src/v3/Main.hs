@@ -14,6 +14,7 @@ import qualified Data.List as L
 import Data.Text (Text)
 import qualified Data.Vector.Unboxed as VU
 import Data.Witherable (catMaybes)
+import Debug.Trace
 import qualified GHCJS.Buffer as Buffer
 import qualified GHCJS.DOM as DOM
 import GHCJS.DOM.ANGLEInstancedArrays
@@ -81,11 +82,11 @@ kParticlesNum = 1000
 
 {-# INLINE kMapBucketCapacity #-}
 kMapBucketCapacity :: Int
-kMapBucketCapacity = 16
+kMapBucketCapacity = 64
 
 {-# INLINE kMapCellSize #-}
 kMapCellSize :: Double
-kMapCellSize = 31
+kMapCellSize = 20
 
 main :: IO ()
 main = mainWidgetWithCss style $ do

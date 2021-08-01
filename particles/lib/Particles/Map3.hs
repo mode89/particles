@@ -6,6 +6,7 @@ module Particles.Map3 where
 import Control.Lens ((^.))
 import Control.Monad.ST (runST)
 import Data.Bits
+import Debug.Trace
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import Linear.V2 (_x, _y)

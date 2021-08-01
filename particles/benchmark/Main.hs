@@ -9,6 +9,7 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
+import Debug.Trace
 import qualified Particles.Map2 as P2
 import qualified Particles.Map3 as P3
 import qualified Particles.Map3.Types as P3
