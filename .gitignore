@@ -1,5 +1,4 @@
-.cabal-sandbox*
-.cabal-store
+.cabal*
 .sandbox
 cabal.project.local
 cabal.sandbox.config
