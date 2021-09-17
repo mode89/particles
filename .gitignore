@@ -1,3 +1,4 @@
+.build
 .cabal*
 .sandbox
 cabal.project.local
